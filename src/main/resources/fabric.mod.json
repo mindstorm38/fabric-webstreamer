@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "id": "webstreamer",
+  "version": "${version}",
+
+  "name": "WebStreamer",
+  "description": "An mod that let you ",
+  "authors": [
+    "Théo Rozier (Mindstorm38)"
+  ],
+  "contact": {
+    "homepage": "https://fabricmc.net/",
+    "sources": "https://github.com/FabricMC/fabric-example-mod"
+  },
+
+  "license": "CC0-1.0",
+  "icon": "assets/modid/icon.png",
+
+  "environment": "*",
+  "entrypoints": {
+    "main": [
+      "fr.theorozier.webstreamer.WebStreamerMod"
+    ],
+    "client": [
+      "fr.theorozier.webstreamer.WebStreamerClientMod"
+    ]
+  },
+  "mixins": [
+
+  ],
+
+  "depends": {
+    "fabricloader": ">=0.13.3",
+    "fabric": "*",
+    "minecraft": "1.18.x",
+    "java": ">=17"
+  },
+  "suggests": {}
+}
