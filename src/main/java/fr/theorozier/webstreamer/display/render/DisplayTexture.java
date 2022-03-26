@@ -26,13 +26,15 @@ public class DisplayTexture extends AbstractTexture {
     private void resize(int width, int height) {
         if (this.width != width || this.height != height) {
             GlStateManager._bindTexture(this.getGlId());
-            GlStateManager._texImage2D(GL11.GL_TEXTURE_2D, 0, GL11.GL_RGB, width, height, 0, GL11.GL_RGB, GL11.GL_UNSIGNED_BYTE, null);
+            GlStateManager._texImage2D(GL11.GL_TEXTURE_2D, 0, GL11.GL_RGB8, width, height, 0, GL12.GL_BGR, GL11.GL_UNSIGNED_BYTE, null);
             this.width = width;
             this.height = height;
         }
     }
 
     public void upload(Frame frame) {
+        
+        RenderSystem.assertOnRenderThread();
 
         if (frame.imageDepth != Frame.DEPTH_UBYTE || frame.imageChannels != 3)
             return;
@@ -43,12 +45,17 @@ public class DisplayTexture extends AbstractTexture {
         int height = frame.imageHeight;
 
         this.resize(width, height);
-
-        RenderSystem.assertOnRenderThread();
+        
         GlStateManager._bindTexture(this.getGlId());
+    
+        GlStateManager._pixelStore(GL11.GL_UNPACK_ROW_LENGTH, 0);
+        GlStateManager._pixelStore(GL11.GL_UNPACK_SKIP_ROWS, 0);
+        GlStateManager._pixelStore(GL11.GL_UNPACK_SKIP_PIXELS, 0);
+        
         GlStateManager._texParameter(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_NEAREST);
         GlStateManager._texParameter(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_NEAREST);
-        GL11.glTexSubImage2D(GL11.GL_TEXTURE_2D, 0, 0, 0, width, height, GL11.GL_RGB, GL11.GL_UNSIGNED_BYTE, imageBuf);
+        
+        GL11.glTexSubImage2D(GL11.GL_TEXTURE_2D, 0, 0, 0, width, height, GL12.GL_BGR, GL11.GL_UNSIGNED_BYTE, imageBuf);
 
     }
 
