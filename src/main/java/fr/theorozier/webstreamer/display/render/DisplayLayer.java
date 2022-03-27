@@ -12,7 +12,6 @@ import net.minecraft.client.render.RenderLayer;
 import net.minecraft.client.render.VertexFormat;
 import net.minecraft.client.render.VertexFormats;
 import net.minecraft.util.math.Vec3i;
-import org.bytedeco.javacv.FFmpegFrameGrabber;
 import org.bytedeco.javacv.Frame;
 
 import java.io.IOException;
@@ -61,8 +60,8 @@ public class DisplayLayer extends RenderLayer {
 		// Grabber //
 	 
 		/** Frame grabber for the current segment. */
-        private FFmpegFrameGrabber grabber;
-	    private record FutureGrabber(Future<FFmpegFrameGrabber> future, long requestTime) {}
+        private FrameGrabber grabber;
+	    private record FutureGrabber(Future<FrameGrabber> future, long requestTime) {}
 	    private final Int2ObjectOpenHashMap<FutureGrabber> futureGrabbers = new Int2ObjectOpenHashMap<>();
 		
 		// Sound //
@@ -161,27 +160,10 @@ public class DisplayLayer extends RenderLayer {
 				this.futureGrabbers.computeIfAbsent(index, index0 -> {
 					System.out.println("=> Request grabber for segment " + index0 + "/" + this.getLastSegmentIndex());
 					return new FutureGrabber(this.manager.getExecutor().submit(() -> {
-						
 						URL segmentUrl = this.source.getContextUrl(seg.uri());
-						FFmpegFrameGrabber grabber = new FFmpegFrameGrabber(segmentUrl.openStream());
+						FrameGrabber grabber = new FrameGrabber(segmentUrl.openStream());
 						grabber.start();
-						
-						/*// Pre allocate buffers
-						Frame frame;
-						boolean imageOk = false, soundOk = false;
-						while ((!imageOk || !soundOk) && (frame = grabber.grab()) != null) {
-							if (frame.image != null && !imageOk) {
-								imageOk = true;
-							}
-							if (frame.samples != null && !soundOk) {
-								soundOk = true;
-							}
-						}*/
-						
-						// Reset to the first frame
-						// grabber.setTimestamp(0);
 						return grabber;
-						
 					}), System.nanoTime());
 				});
 			}
@@ -190,11 +172,11 @@ public class DisplayLayer extends RenderLayer {
 		private boolean pullGrabberAndUse(int index) {
 			FutureGrabber futureGrabber = this.futureGrabbers.get(index);
 			if (futureGrabber != null) {
-				Future<FFmpegFrameGrabber> future = futureGrabber.future;
+				Future<FrameGrabber> future = futureGrabber.future;
 				if (future.isDone()) {
 					if (!future.isCancelled()) {
 						try {
-							FFmpegFrameGrabber grabber = future.get();
+							FrameGrabber grabber = future.get();
 							this.stopAndRemoveGrabber();
 							this.grabber = grabber;
 							// This grabber should have been started by the task.
@@ -216,11 +198,11 @@ public class DisplayLayer extends RenderLayer {
 	
 		private void stopAndRemoveGrabber() {
 			if (this.grabber != null) {
-				FFmpegFrameGrabber grabber = this.grabber;
+				FrameGrabber grabber = this.grabber;
 				this.manager.getExecutor().execute(() -> {
 					try {
 						grabber.stop();
-					} catch (FFmpegFrameGrabber.Exception ignored) {}
+					} catch (IOException ignored) {}
 				});
 				this.grabber = null;
 			}
@@ -381,7 +363,7 @@ public class DisplayLayer extends RenderLayer {
 			return true;
             
         }
-	
+	 
 	    private void fetchFrame() throws IOException {
 		    Frame frame;
 		    while ((frame = this.grabber.grab()) != null) {
@@ -401,7 +383,7 @@ public class DisplayLayer extends RenderLayer {
 
         private void tick() {
 	
-	        //System.out.println("--------------------");
+	        System.out.println("--------------------");
 	        long tickStart = System.nanoTime();
 			
 	        try {
@@ -419,7 +401,7 @@ public class DisplayLayer extends RenderLayer {
         }
 		
 		private static void printTime(String name, long start) {
-			//System.out.println(name + ": " + ((double) (System.nanoTime() - start) / 1000000.0) + "ms");
+			System.out.println(name + ": " + ((double) (System.nanoTime() - start) / 1000000.0) + "ms");
 		}
 
     }
@@ -436,14 +418,11 @@ public class DisplayLayer extends RenderLayer {
         super("display", VertexFormats.POSITION_TEXTURE, VertexFormat.DrawMode.QUADS,
                 256, false, true,
                 () -> {
-                    // inner.tick(); // TODO: Avoid calling this on every "startAction" but rather once per frame.
                     POSITION_TEXTURE_SHADER.startDrawing();
                     RenderSystem.enableTexture();
                     RenderSystem.setShaderTexture(0, inner.tex.getGlId());
                 },
-                () -> {
-
-                });
+                () -> {});
 		
 		this.inner = inner;
 		
