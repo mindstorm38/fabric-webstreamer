@@ -383,7 +383,7 @@ public class DisplayLayer extends RenderLayer {
 
         private void tick() {
 	
-	        System.out.println("--------------------");
+	        // System.out.println("--------------------");
 	        long tickStart = System.nanoTime();
 			
 	        try {
@@ -401,7 +401,7 @@ public class DisplayLayer extends RenderLayer {
         }
 		
 		private static void printTime(String name, long start) {
-			System.out.println(name + ": " + ((double) (System.nanoTime() - start) / 1000000.0) + "ms");
+			// System.out.println(name + ": " + ((double) (System.nanoTime() - start) / 1000000.0) + "ms");
 		}
 
     }

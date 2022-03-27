@@ -41,21 +41,17 @@ public class DisplayTexture extends AbstractTexture {
 
         ByteBuffer imageBuf = (ByteBuffer) frame.image[0];
 
-        int width = frame.imageWidth;
-        int height = frame.imageHeight;
+        this.resize(frame.imageWidth, frame.imageHeight);
 
-        this.resize(width, height);
-        
         GlStateManager._bindTexture(this.getGlId());
-    
-        GlStateManager._pixelStore(GL11.GL_UNPACK_ROW_LENGTH, 0);
+        GlStateManager._pixelStore(GL11.GL_UNPACK_ROW_LENGTH, frame.imageStride / 3);
         GlStateManager._pixelStore(GL11.GL_UNPACK_SKIP_ROWS, 0);
         GlStateManager._pixelStore(GL11.GL_UNPACK_SKIP_PIXELS, 0);
+
+        GlStateManager._texParameter(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_LINEAR);
+        GlStateManager._texParameter(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_LINEAR);
         
-        GlStateManager._texParameter(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_NEAREST);
-        GlStateManager._texParameter(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_NEAREST);
-        
-        GL11.glTexSubImage2D(GL11.GL_TEXTURE_2D, 0, 0, 0, width, height, GL12.GL_BGR, GL11.GL_UNSIGNED_BYTE, imageBuf);
+        GL11.glTexSubImage2D(GL11.GL_TEXTURE_2D, 0, 0, 0, frame.imageWidth, frame.imageHeight, GL12.GL_BGR, GL11.GL_UNSIGNED_BYTE, imageBuf);
 
     }
 

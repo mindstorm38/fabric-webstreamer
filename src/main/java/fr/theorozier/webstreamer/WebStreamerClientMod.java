@@ -9,6 +9,8 @@ import net.fabricmc.api.Environment;
 import net.fabricmc.fabric.api.blockrenderlayer.v1.BlockRenderLayerMap;
 import net.fabricmc.fabric.api.client.rendering.v1.BlockEntityRendererRegistry;
 import net.minecraft.client.render.RenderLayer;
+import org.bytedeco.ffmpeg.global.avutil;
+import org.bytedeco.javacv.FFmpegLogCallback;
 
 @Environment(EnvType.CLIENT)
 public class WebStreamerClientMod implements ClientModInitializer {
@@ -24,6 +26,8 @@ public class WebStreamerClientMod implements ClientModInitializer {
 
         SOURCES = new Sources();
         DISPLAY_LAYERS = new DisplayLayerManager();
+
+        FFmpegLogCallback.setLevel(avutil.AV_LOG_QUIET);
     
     }
 

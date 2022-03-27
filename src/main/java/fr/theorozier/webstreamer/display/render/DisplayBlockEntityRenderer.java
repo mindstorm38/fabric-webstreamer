@@ -39,28 +39,28 @@ public class DisplayBlockEntityRenderer implements BlockEntityRenderer<DisplayBl
             
             switch (entity.getCachedState().get(Properties.HORIZONTAL_FACING)) {
                 case NORTH -> {
-                    buffer.vertex(positionMatrix, 1, 0, 0.95f).texture(0, 1).next();
+                    buffer.vertex(positionMatrix, 4, 0, 0.95f).texture(0, 1).next();
                     buffer.vertex(positionMatrix, 0, 0, 0.95f).texture(1, 1).next();
-                    buffer.vertex(positionMatrix, 0, 1, 0.95f).texture(1, 0).next();
-                    buffer.vertex(positionMatrix, 1, 1, 0.95f).texture(0, 0).next();
+                    buffer.vertex(positionMatrix, 0, 4, 0.95f).texture(1, 0).next();
+                    buffer.vertex(positionMatrix, 4, 4, 0.95f).texture(0, 0).next();
                 }
                 case SOUTH -> {
                     buffer.vertex(positionMatrix, 0, 0, 0.05f).texture(0, 1).next();
-                    buffer.vertex(positionMatrix, 1, 0, 0.05f).texture(1, 1).next();
-                    buffer.vertex(positionMatrix, 1, 1, 0.05f).texture(1, 0).next();
-                    buffer.vertex(positionMatrix, 0, 1, 0.05f).texture(0, 0).next();
+                    buffer.vertex(positionMatrix, 4, 0, 0.05f).texture(1, 1).next();
+                    buffer.vertex(positionMatrix, 4, 4, 0.05f).texture(1, 0).next();
+                    buffer.vertex(positionMatrix, 0, 4, 0.05f).texture(0, 0).next();
                 }
                 case EAST -> {
-                    buffer.vertex(positionMatrix, 0.05f, 0, 1).texture(0, 1).next();
+                    buffer.vertex(positionMatrix, 0.05f, 0, 4).texture(0, 1).next();
                     buffer.vertex(positionMatrix, 0.05f, 0, 0).texture(1, 1).next();
-                    buffer.vertex(positionMatrix, 0.05f, 1, 0).texture(1, 0).next();
-                    buffer.vertex(positionMatrix, 0.05f, 1, 1).texture(0, 0).next();
+                    buffer.vertex(positionMatrix, 0.05f, 4, 0).texture(1, 0).next();
+                    buffer.vertex(positionMatrix, 0.05f, 4, 4).texture(0, 0).next();
                 }
                 case WEST -> {
                     buffer.vertex(positionMatrix, 0.95f, 0, 0).texture(0, 1).next();
-                    buffer.vertex(positionMatrix, 0.95f, 0, 1).texture(1, 1).next();
-                    buffer.vertex(positionMatrix, 0.95f, 1, 1).texture(1, 0).next();
-                    buffer.vertex(positionMatrix, 0.95f, 1, 0).texture(0, 0).next();
+                    buffer.vertex(positionMatrix, 0.95f, 0, 4).texture(1, 1).next();
+                    buffer.vertex(positionMatrix, 0.95f, 4, 4).texture(1, 0).next();
+                    buffer.vertex(positionMatrix, 0.95f, 4, 0).texture(0, 0).next();
                 }
             }
 
