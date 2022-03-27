@@ -15,9 +15,9 @@ import net.minecraft.util.math.Matrix4f;
 
 @Environment(EnvType.CLIENT)
 public class DisplayBlockEntityRenderer implements BlockEntityRenderer<DisplayBlockEntity> {
-
+    
     public DisplayBlockEntityRenderer(BlockEntityRendererFactory.Context ctx) {
-
+    
     }
 
     @Override
@@ -26,7 +26,7 @@ public class DisplayBlockEntityRenderer implements BlockEntityRenderer<DisplayBl
         Source source = entity.getSource();
 
         if (source != null) {
-
+    
             matrices.push();
 
             MatrixStack.Entry entry = matrices.peek();
@@ -35,6 +35,8 @@ public class DisplayBlockEntityRenderer implements BlockEntityRenderer<DisplayBl
             DisplayLayer layer = WebStreamerClientMod.DISPLAY_LAYERS.forSource(source);
             VertexConsumer buffer = vertexConsumers.getBuffer(layer);
     
+            layer.setDisplayPosition(entity.getPos());
+            
             switch (entity.getCachedState().get(Properties.HORIZONTAL_FACING)) {
                 case NORTH -> {
                     buffer.vertex(positionMatrix, 1, 0, 0.95f).texture(0, 1).next();
@@ -63,7 +65,7 @@ public class DisplayBlockEntityRenderer implements BlockEntityRenderer<DisplayBl
             }
 
             matrices.pop();
-
+    
         }
 
     }

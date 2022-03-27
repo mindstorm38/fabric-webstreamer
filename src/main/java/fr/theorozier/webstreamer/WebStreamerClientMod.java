@@ -24,7 +24,7 @@ public class WebStreamerClientMod implements ClientModInitializer {
 
         SOURCES = new Sources();
         DISPLAY_LAYERS = new DisplayLayerManager();
-
+    
     }
 
 }

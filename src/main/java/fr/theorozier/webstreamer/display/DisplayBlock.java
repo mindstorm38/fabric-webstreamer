@@ -22,9 +22,12 @@ public class DisplayBlock extends BlockWithEntity {
     public DisplayBlock() {
         super(Settings.of(Material.GLASS)
                 .sounds(BlockSoundGroup.AMETHYST_BLOCK)
+                .breakInstantly()
                 .noCollision()
                 .nonOpaque());
     }
+    
+    
 
     @Override
     protected void appendProperties(StateManager.Builder<Block, BlockState> builder) {

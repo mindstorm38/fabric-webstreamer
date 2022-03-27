@@ -31,6 +31,13 @@ public class DisplayLayerManager {
         return layerCache.computeIfAbsent(source.getId(), key -> new DisplayLayer(this, source));
     }
     
+    /**
+     * Tick all active display layers.
+     */
+    public void tickDisplays() {
+        this.layerCache.values().forEach(DisplayLayer::tickDisplay);
+    }
+    
     public ExecutorService getExecutor() {
         return executor;
     }

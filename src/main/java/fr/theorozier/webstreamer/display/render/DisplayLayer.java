@@ -1,6 +1,7 @@
 package fr.theorozier.webstreamer.display.render;
 
 import com.mojang.blaze3d.systems.RenderSystem;
+import fr.theorozier.webstreamer.display.sound.DisplaySoundSource;
 import fr.theorozier.webstreamer.source.Source;
 import io.lindstrom.m3u8.model.MediaPlaylist;
 import io.lindstrom.m3u8.model.MediaSegment;
@@ -10,6 +11,7 @@ import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import net.minecraft.client.render.RenderLayer;
 import net.minecraft.client.render.VertexFormat;
 import net.minecraft.client.render.VertexFormats;
+import net.minecraft.util.math.Vec3i;
 import org.bytedeco.javacv.FFmpegFrameGrabber;
 import org.bytedeco.javacv.Frame;
 
@@ -63,6 +65,10 @@ public class DisplayLayer extends RenderLayer {
 	    private record FutureGrabber(Future<FFmpegFrameGrabber> future, long requestTime) {}
 	    private final Int2ObjectOpenHashMap<FutureGrabber> futureGrabbers = new Int2ObjectOpenHashMap<>();
 		
+		// Sound //
+	    // Sounds are handled in the render layer because they must be perfectly synced to the visual
+	    private final DisplaySoundSource soundSource;
+		
         Inner(DisplayLayerManager manager, Source source) {
 
 			this.manager = manager;
@@ -71,6 +77,8 @@ public class DisplayLayer extends RenderLayer {
             this.tex = new DisplayTexture();
             
             this.hlsParser = new MediaPlaylistParser(ParsingMode.LENIENT);
+			
+			this.soundSource = new DisplaySoundSource();
     
         }
 		
@@ -151,12 +159,29 @@ public class DisplayLayer extends RenderLayer {
 			MediaSegment seg = this.getSegment(index);
 			if (seg != null) {
 				this.futureGrabbers.computeIfAbsent(index, index0 -> {
-					System.out.println("=> Request grabber for segment " + index0);
+					System.out.println("=> Request grabber for segment " + index0 + "/" + this.getLastSegmentIndex());
 					return new FutureGrabber(this.manager.getExecutor().submit(() -> {
+						
 						URL segmentUrl = this.source.getContextUrl(seg.uri());
 						FFmpegFrameGrabber grabber = new FFmpegFrameGrabber(segmentUrl.openStream());
 						grabber.start();
+						
+						/*// Pre allocate buffers
+						Frame frame;
+						boolean imageOk = false, soundOk = false;
+						while ((!imageOk || !soundOk) && (frame = grabber.grab()) != null) {
+							if (frame.image != null && !imageOk) {
+								imageOk = true;
+							}
+							if (frame.samples != null && !soundOk) {
+								soundOk = true;
+							}
+						}*/
+						
+						// Reset to the first frame
+						// grabber.setTimestamp(0);
 						return grabber;
+						
 					}), System.nanoTime());
 				});
 			}
@@ -207,7 +232,7 @@ public class DisplayLayer extends RenderLayer {
 	     * @throws IOException If any error happens when fetching online playlist.
 	     */
         private boolean fetchSegment() throws IOException {
-        
+			
 			// This is the latency we force from the last segment.
             final double SAFE_LATENCY = 6.0;
             
@@ -226,11 +251,15 @@ public class DisplayLayer extends RenderLayer {
 	
             if (this.segmentIndex != -1) {
 	
+	            long segmentStart = System.nanoTime();
+	
 				// Tries to pull the playlist if being requested.
 	            this.pullPlaylist();
 				
 				// This algorithm tries to go forward in segments by elapsedTime.
 				double remainingTime = elapsedTime;
+	
+	            long loopStart = System.nanoTime();
 				
 				for (;;) {
 					
@@ -245,13 +274,14 @@ public class DisplayLayer extends RenderLayer {
 					this.segmentTimestamp += remainingTime;
 					if (this.segmentTimestamp > this.segmentDuration) {
 						
-						System.out.println("Segment " + this.segmentIndex + " overflow...");
+						System.out.println("Segment " + this.segmentIndex + "/" + this.getLastSegmentIndex() + " overflow...");
 						System.out.println("=> Time " + this.segmentTimestamp + " > " + this.segmentDuration);
 						
 						this.segmentIndex++;
 						MediaSegment seg = this.getCurrentSegment();
 						
 						if (seg == null) {
+							System.out.println("=> Next segment is null, re-sync...");
 							this.segmentIndex = -1;
 							this.playlistRequestLastSegmentIndex = -1;  // Temporary fix to avoid init infinite loop
 							this.stopAndRemoveGrabber();
@@ -269,19 +299,27 @@ public class DisplayLayer extends RenderLayer {
 					}
 					
 				}
+				
+	            printTime("segment loop", loopStart);
 	
 				int offsetFromLastSegment = this.getLastSegmentIndex() - this.segmentIndex;
 				
 				if (offsetFromLastSegment <= 1) {
+					long requestStart = System.nanoTime();
 					// We are at most 1 segment from the end, so request a new playlist.
 					this.requestPlaylist();
+					printTime("request playlist", requestStart);
 				}
 				
 				if (offsetFromLastSegment >= 1) {
+					long requestStart = System.nanoTime();
 					// If we have at least one segment after the current one, preload it.
 					this.requestGrabber(this.segmentIndex + 1);
+					printTime("request grabber", requestStart);
 				}
-				
+	
+	            printTime("segment", segmentStart);
+	
             }
 	
 	        if (this.segmentIndex == -1) {
@@ -344,36 +382,49 @@ public class DisplayLayer extends RenderLayer {
             
         }
 	
-	    private Frame fetchImageFrame() throws IOException {
+	    private void fetchFrame() throws IOException {
 		    Frame frame;
 		    while ((frame = this.grabber.grab()) != null) {
 			    if (frame.image != null) {
-				    // We only take image frames.
 				    double frameTimestamp = (double) frame.timestamp / 1000000.0;
 				    if (frameTimestamp >= this.segmentTimestamp) {
-					    // We got the right frame.
-					    return frame;
+					    this.tex.upload(frame);
+						break;
 				    }
 			    }
+				if (frame.samples != null) {
+					this.soundSource.uploadAndEnqueue(frame);
+					this.soundSource.unqueueAndDelete();
+				}
 		    }
-		    return null;
 	    }
 
         private void tick() {
 	
+	        //System.out.println("--------------------");
+	        long tickStart = System.nanoTime();
+			
 	        try {
 		        if (this.fetchSegment()) {
-			        Frame frame = this.fetchImageFrame();
-			        assert frame != null;
-			        this.tex.upload(frame);
+					long frameStart = System.nanoTime();
+			        this.fetchFrame();
+			        printTime("frame", frameStart);
 		        }
 	        } catch (IOException e) {
 		        e.printStackTrace();
 	        }
+	
+	        printTime("tick", tickStart);
 
         }
+		
+		private static void printTime(String name, long start) {
+			//System.out.println(name + ": " + ((double) (System.nanoTime() - start) / 1000000.0) + "ms");
+		}
 
     }
+	
+	private final Inner inner;
 
     public DisplayLayer(DisplayLayerManager manager, Source source) {
 		// We are using an inner class just for the "super" call to be first.
@@ -381,10 +432,11 @@ public class DisplayLayer extends RenderLayer {
     }
 
     private DisplayLayer(Inner inner) {
+		
         super("display", VertexFormats.POSITION_TEXTURE, VertexFormat.DrawMode.QUADS,
                 256, false, true,
                 () -> {
-                    inner.tick();
+                    // inner.tick(); // TODO: Avoid calling this on every "startAction" but rather once per frame.
                     POSITION_TEXTURE_SHADER.startDrawing();
                     RenderSystem.enableTexture();
                     RenderSystem.setShaderTexture(0, inner.tex.getGlId());
@@ -392,6 +444,17 @@ public class DisplayLayer extends RenderLayer {
                 () -> {
 
                 });
+		
+		this.inner = inner;
+		
     }
+	
+	public void tickDisplay() {
+		this.inner.tick();
+	}
+	
+	public void setDisplayPosition(Vec3i pos) {
+		this.inner.soundSource.setPosition(pos);
+	}
 
 }
