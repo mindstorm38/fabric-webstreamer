@@ -33,25 +33,26 @@ public class DisplayTexture extends AbstractTexture {
     }
 
     public void upload(Frame frame) {
-        
         RenderSystem.assertOnRenderThread();
+        if (frame.imageDepth == Frame.DEPTH_UBYTE && frame.imageChannels == 3) {
+            ByteBuffer data = (ByteBuffer) frame.image[0];
+            this.uploadRaw(data, frame.imageWidth, frame.imageHeight, frame.imageStride / 3);
+        }
+    }
 
-        if (frame.imageDepth != Frame.DEPTH_UBYTE || frame.imageChannels != 3)
-            return;
+    public void uploadRaw(ByteBuffer data, int width, int height, int dataWidth) {
 
-        ByteBuffer imageBuf = (ByteBuffer) frame.image[0];
-
-        this.resize(frame.imageWidth, frame.imageHeight);
+        this.resize(width, height);
 
         GlStateManager._bindTexture(this.getGlId());
-        GlStateManager._pixelStore(GL11.GL_UNPACK_ROW_LENGTH, frame.imageStride / 3);
+        GlStateManager._pixelStore(GL11.GL_UNPACK_ROW_LENGTH, dataWidth);
         GlStateManager._pixelStore(GL11.GL_UNPACK_SKIP_ROWS, 0);
         GlStateManager._pixelStore(GL11.GL_UNPACK_SKIP_PIXELS, 0);
 
         GlStateManager._texParameter(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_LINEAR);
         GlStateManager._texParameter(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_LINEAR);
-        
-        GL11.glTexSubImage2D(GL11.GL_TEXTURE_2D, 0, 0, 0, frame.imageWidth, frame.imageHeight, GL12.GL_BGR, GL11.GL_UNSIGNED_BYTE, imageBuf);
+
+        GL11.glTexSubImage2D(GL11.GL_TEXTURE_2D, 0, 0, 0, width, height, GL12.GL_BGR, GL11.GL_UNSIGNED_BYTE, data);
 
     }
 

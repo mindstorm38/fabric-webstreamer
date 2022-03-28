@@ -1,7 +1,6 @@
 package fr.theorozier.webstreamer.display.render;
 
 import com.mojang.blaze3d.systems.RenderSystem;
-import fr.theorozier.webstreamer.display.sound.DisplaySoundSource;
 import fr.theorozier.webstreamer.source.Source;
 import io.lindstrom.m3u8.model.MediaPlaylist;
 import io.lindstrom.m3u8.model.MediaSegment;
@@ -203,8 +202,6 @@ public class DisplayLayer extends RenderLayer {
 		
 		// Grabber //
 	    
-	    // TODO: Add a cleanup function for never-used grabbers.
-
 		private void cleanupUnusedGrabbers(long now) {
 			Iterator<FutureGrabber> it = this.futureGrabbers.values().iterator();
 			while (it.hasNext()) {
@@ -231,7 +228,7 @@ public class DisplayLayer extends RenderLayer {
 			}
 		}
 		
-		private boolean pullGrabberAndUse(int index) {
+		private boolean pullGrabberAndUse(int index, boolean grabRemaining) throws IOException {
 			FutureGrabber futureGrabber = this.futureGrabbers.get(index);
 			if (futureGrabber != null) {
 				Future<FrameGrabber> future = futureGrabber.future;
@@ -239,7 +236,7 @@ public class DisplayLayer extends RenderLayer {
 					if (!future.isCancelled()) {
 						try {
 							FrameGrabber grabber = future.get();
-							this.stopGrabberAndRemove();
+							this.stopGrabber(grabRemaining);
 							this.grabber = grabber;
 							// This grabber should have been started by the task.
 							this.futureGrabbers.remove(index);
@@ -257,20 +254,19 @@ public class DisplayLayer extends RenderLayer {
 			}
 			return false;
 		}
-	
-		private void stopGrabberAndRemove() {
+
+		private void stopGrabber(boolean grabRemaining) throws IOException {
 			if (this.grabber != null) {
+				if (grabRemaining) {
+					this.grabber.grabRemaining();
+					this.grabber.grabAudioAndUpload(this.soundSource);
+				}
 				this.executor.execute(this.grabber::stop);
 				this.grabber = null;
 			}
 		}
 	
-	    /**
-	     * Fetch the next segment and its timestamp.
-	     * @return True if a valid segment is available to process.
-	     * @throws IOException If any error happens when fetching online playlist.
-	     */
-        private boolean fetchSegment() throws IOException {
+        private void fetch() throws IOException {
             
 			// The speed factor can be adjusted by various elements.
 			double speedFactor = 1.0;
@@ -304,7 +300,7 @@ public class DisplayLayer extends RenderLayer {
 					if (this.getCurrentSegment() == null) {
 						this.segmentIndex = -1;
 						this.playlistRequestLastSegmentIndex = -1;  // Temporary fix to avoid init infinite loop
-						this.stopGrabberAndRemove();
+						this.stopGrabber(true);
 						break;
 					}
 					
@@ -321,12 +317,12 @@ public class DisplayLayer extends RenderLayer {
 							//System.out.println("=> Next segment is null, re-sync...");
 							this.segmentIndex = -1;
 							this.playlistRequestLastSegmentIndex = -1;  // Temporary fix to avoid init infinite loop
-							this.stopGrabberAndRemove();
+							this.stopGrabber(true);
 							break;
 						}
 						
 						//System.out.println("=> Going next segment and removing grabber...");
-						this.stopGrabberAndRemove();
+						this.stopGrabber(true);
 						remainingTime = this.segmentTimestamp - this.segmentDuration;
 						this.segmentDuration = seg.duration();
 						this.segmentTimestamp = 0;
@@ -368,7 +364,7 @@ public class DisplayLayer extends RenderLayer {
 		
 		        if (!this.pullPlaylist()) {
 					this.requestPlaylist();
-			        return false;
+			        return;
 		        }
 		        
 		        double totalDuration = 0.0;
@@ -376,7 +372,7 @@ public class DisplayLayer extends RenderLayer {
 			        totalDuration += seg.duration();
 		        }
 		
-		        this.stopGrabberAndRemove();
+		        this.stopGrabber(false);
 		        double globalTimestamp = totalDuration;
 		
 		        this.segmentIndex = this.playlistOffset + (this.playlistSegments.size() - 1);
@@ -412,38 +408,23 @@ public class DisplayLayer extends RenderLayer {
 	        }
 			
             if (this.grabber == null) {
-				return this.pullGrabberAndUse(this.segmentIndex);
+				if (!this.pullGrabberAndUse(this.segmentIndex, true)) {
+					return;
+				}
             }
-			
-			return true;
-            
-        }
-	 
-	    private void fetchFrame() throws IOException {
 
-			Frame frame = this.grabber.grabUntil((long) (this.segmentTimestamp * 1000000), soundFrame -> {
-				this.soundSource.uploadAndEnqueue(soundFrame);
-				this.soundSource.unqueueAndDelete();
-			});
-
+			Frame frame = this.grabber.grabUntil((long) (this.segmentTimestamp * 1000000));
+			this.grabber.grabAudioAndUpload(this.soundSource);
 			if (frame != null) {
 				this.tex.upload(frame);
 			}
-
-	    }
+			
+        }
 
         private void tick() {
 	
-	        // System.out.println("--------------------");
-
-	        long tickStart = System.nanoTime();
-			
 	        try {
-		        if (this.fetchSegment()) {
-					long frameStart = System.nanoTime();
-			        this.fetchFrame();
-			        printTime("frame", frameStart);
-		        }
+				this.fetch();
 	        } catch (IOException e) {
 		        e.printStackTrace();
 	        }
@@ -454,8 +435,6 @@ public class DisplayLayer extends RenderLayer {
 				this.lastCleanup = now;
 			}
 	
-	        printTime("tick", tickStart);
-
         }
 
 		@SuppressWarnings("unused")

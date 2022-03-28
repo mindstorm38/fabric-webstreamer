@@ -1,4 +1,4 @@
-package fr.theorozier.webstreamer.display.sound;
+package fr.theorozier.webstreamer.display.render;
 
 import com.mojang.blaze3d.systems.RenderSystem;
 import fr.theorozier.webstreamer.WebStreamerMod;
@@ -47,13 +47,32 @@ public class DisplaySoundSource {
 		AL10.alSourcef(this.sourceId, AL10.AL_ROLLOFF_FACTOR, 1.0F);
 		AL10.alSourcef(this.sourceId, AL10.AL_REFERENCE_DISTANCE, 0.0F);
 	}
-	
-	public boolean uploadAndEnqueue(Frame frame) {
+
+	/*public void upload(Frame frame) {
+		this.uploadAndEnqueue(frame);
+		this.unqueueAndDelete();
+	}*/
+
+	public void enqueueRaw(int bufferId) {
+
+		AL10.alSourceQueueBuffers(this.sourceId, bufferId);
+		checkErrors("Queue buffers");
+
+		if (AL10.alGetSourcef(this.sourceId, AL10.AL_SOURCE_STATE) !=  AL10.AL_PLAYING) {
+			System.out.println("playing again...");
+			AL10.alSourcePlay(this.sourceId);
+		}
+
+		this.unqueueAndDelete();
+
+	}
+
+	/*private void uploadAndEnqueue(Frame frame) {
 		
 		RenderSystem.assertOnRenderThread();
 		
 		if (frame.samples == null || frame.samples.length <= 0)
-			return false;
+			return;
 		
 		Buffer sample = frame.samples[0];
 		
@@ -69,21 +88,14 @@ public class DisplaySoundSource {
 		
 		if (checkErrors("Buffer data")) {
 			AL10.alDeleteBuffers(bufferId);
-			return false;
+			return;
 		}
 		
-		AL10.alSourceQueueBuffers(this.sourceId, bufferId);
-		checkErrors("Queue buffers");
-		
-		if (AL10.alGetSourcef(this.sourceId, AL10.AL_SOURCE_STATE) !=  AL10.AL_PLAYING) {
-			AL10.alSourcePlay(this.sourceId);
-		}
+		this.enqueueRaw(bufferId);
 
-		return true;
+	}*/
 
-	}
-	
-	public void unqueueAndDelete() {
+	private void unqueueAndDelete() {
 		int numProcessed = AL10.alGetSourcei(this.sourceId, AL10.AL_BUFFERS_PROCESSED);
 		if (numProcessed > 0) {
 			int[] buffers = new int[numProcessed];
