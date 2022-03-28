@@ -16,18 +16,31 @@ import org.bytedeco.javacv.Frame;
 
 import java.io.IOException;
 import java.net.URL;
+import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 
 /**
  * There is only instance of this class per source.
+ * Every call to this class must be done from render thread,
+ * this is not checked so user have to check this!
  */
 public class DisplayLayer extends RenderLayer {
 
+	/** The latency forced, avoiding display freezes for loading. */
+	private static final double SAFE_LATENCY = 8.0;
+	/** The timeout for a layer to be considered unused */
+	private static final long LAYER_UNUSED_TIMEOUT = 5L * 1000000000L;
+	/** The timeout for grabber's request. */
+	private static final long GRABBER_REQUEST_TIMEOUT = 10L * 1000000000L;
+	/** Interval of internal cleanups (unused grabbers). */
+	private static final long CLEANUP_INTERVAL = 5L * 1000000000L;
+
     private static class Inner {
 
-		private final DisplayLayerManager manager;
+		private final ExecutorService executor;
 		
         private final Source source;
         private final DisplayTexture tex;
@@ -61,16 +74,44 @@ public class DisplayLayer extends RenderLayer {
 	 
 		/** Frame grabber for the current segment. */
         private FrameGrabber grabber;
-	    private record FutureGrabber(Future<FrameGrabber> future, long requestTime) {}
+
+		/** A tuple of future and the time it was created at, used to cleanup timed out grabbers. */
+		private record FutureGrabber(Future<FrameGrabber> future, long time) {
+
+			/**
+			 * Wait for the future and stop the grabber directly.
+			 */
+			void waitAndStop() {
+				try {
+					this.future.get().stop();
+				} catch (Exception ignored) { }
+			}
+
+			boolean isTimedOut(long now) {
+				return now - this.time >= GRABBER_REQUEST_TIMEOUT;
+			}
+
+		}
+
+		/**
+		 * Map of future grabbers for future mapped to future segments. Ultimately,
+		 * they might be unused and the cleanup is made for such cases.
+		 */
 	    private final Int2ObjectOpenHashMap<FutureGrabber> futureGrabbers = new Int2ObjectOpenHashMap<>();
 		
 		// Sound //
-	    // Sounds are handled in the render layer because they must be perfectly synced to the visual
+		/** The sound source. */
 	    private final DisplaySoundSource soundSource;
-		
-        Inner(DisplayLayerManager manager, Source source) {
 
-			this.manager = manager;
+		// Timing //
+		/** Time in nanoseconds (monotonic) of the last use. */
+		private long lastUse = 0;
+		/** Time in nanoseconds (monotonic) of the last internal cleanup. */
+		private long lastCleanup = 0;
+
+        Inner(ExecutorService executor, Source source) {
+
+			this.executor = executor;
 			
             this.source = source;
             this.tex = new DisplayTexture();
@@ -78,8 +119,23 @@ public class DisplayLayer extends RenderLayer {
             this.hlsParser = new MediaPlaylistParser(ParsingMode.LENIENT);
 			
 			this.soundSource = new DisplaySoundSource();
+
+			System.out.println("Allocate DisplayLayer for " + source.getUrl());
     
         }
+
+		private void free() {
+
+			System.out.println("Free DisplayLayer for " + this.source.getUrl());
+
+			this.tex.clearGlId();
+			this.soundSource.free();
+			for (FutureGrabber grabber : this.futureGrabbers.values()) {
+				this.executor.execute(grabber::waitAndStop);
+			}
+			this.futureGrabbers.clear();
+
+		}
 		
 		// Playlist //
 	
@@ -101,11 +157,6 @@ public class DisplayLayer extends RenderLayer {
 		    return this.getSegment(this.segmentIndex);
 	    }
 	
-	    /** @return The first segment index for the current playlist. */
-		private int getFirstSegmentIndex() {
-			return this.playlistOffset;
-		}
-	
 	    /** @return The last segment index for the current playlist. */
 	    private int getLastSegmentIndex() {
 		    return this.playlistSegments.size() - 1 + this.playlistOffset;
@@ -120,8 +171,8 @@ public class DisplayLayer extends RenderLayer {
 		private void requestPlaylist() {
 			int lastSegmentIndex = this.playlistSegments == null ? 0 : this.getLastSegmentIndex();
 			if (this.playlistRequestFuture == null && lastSegmentIndex > this.playlistRequestLastSegmentIndex) {
-				System.out.println("=> Requesting playlist...");
-				this.playlistRequestFuture = this.manager.getExecutor().submit(this::requestPlaylistBlocking);
+				// System.out.println("=> Requesting playlist...");
+				this.playlistRequestFuture = this.executor.submit(this::requestPlaylistBlocking);
 				this.playlistRequestLastSegmentIndex = lastSegmentIndex;
 			}
 		}
@@ -153,13 +204,24 @@ public class DisplayLayer extends RenderLayer {
 		// Grabber //
 	    
 	    // TODO: Add a cleanup function for never-used grabbers.
+
+		private void cleanupUnusedGrabbers(long now) {
+			Iterator<FutureGrabber> it = this.futureGrabbers.values().iterator();
+			while (it.hasNext()) {
+				FutureGrabber item = it.next();
+				if (item.isTimedOut(now)) {
+					this.executor.execute(item::waitAndStop);
+					it.remove();
+				}
+			}
+		}
 		
 		private void requestGrabber(int index) {
 			MediaSegment seg = this.getSegment(index);
 			if (seg != null) {
 				this.futureGrabbers.computeIfAbsent(index, index0 -> {
-					System.out.println("=> Request grabber for segment " + index0 + "/" + this.getLastSegmentIndex());
-					return new FutureGrabber(this.manager.getExecutor().submit(() -> {
+					//System.out.println("=> Request grabber for segment " + index0 + "/" + this.getLastSegmentIndex());
+					return new FutureGrabber(this.executor.submit(() -> {
 						URL segmentUrl = this.source.getContextUrl(seg.uri());
 						FrameGrabber grabber = new FrameGrabber(segmentUrl.openStream());
 						grabber.start();
@@ -177,7 +239,7 @@ public class DisplayLayer extends RenderLayer {
 					if (!future.isCancelled()) {
 						try {
 							FrameGrabber grabber = future.get();
-							this.stopAndRemoveGrabber();
+							this.stopGrabberAndRemove();
 							this.grabber = grabber;
 							// This grabber should have been started by the task.
 							this.futureGrabbers.remove(index);
@@ -196,14 +258,9 @@ public class DisplayLayer extends RenderLayer {
 			return false;
 		}
 	
-		private void stopAndRemoveGrabber() {
+		private void stopGrabberAndRemove() {
 			if (this.grabber != null) {
-				FrameGrabber grabber = this.grabber;
-				this.manager.getExecutor().execute(() -> {
-					try {
-						grabber.stop();
-					} catch (IOException ignored) {}
-				});
+				this.executor.execute(this.grabber::stop);
 				this.grabber = null;
 			}
 		}
@@ -214,9 +271,6 @@ public class DisplayLayer extends RenderLayer {
 	     * @throws IOException If any error happens when fetching online playlist.
 	     */
         private boolean fetchSegment() throws IOException {
-			
-			// This is the latency we force from the last segment.
-            final double SAFE_LATENCY = 8.0;
             
 			// The speed factor can be adjusted by various elements.
 			double speedFactor = 1.0;
@@ -250,29 +304,29 @@ public class DisplayLayer extends RenderLayer {
 					if (this.getCurrentSegment() == null) {
 						this.segmentIndex = -1;
 						this.playlistRequestLastSegmentIndex = -1;  // Temporary fix to avoid init infinite loop
-						this.stopAndRemoveGrabber();
+						this.stopGrabberAndRemove();
 						break;
 					}
 					
 					this.segmentTimestamp += remainingTime;
 					if (this.segmentTimestamp > this.segmentDuration) {
 						
-						System.out.println("Segment " + this.segmentIndex + "/" + this.getLastSegmentIndex() + " overflow...");
-						System.out.println("=> Time " + this.segmentTimestamp + " > " + this.segmentDuration);
+						//System.out.println("Segment " + this.segmentIndex + "/" + this.getLastSegmentIndex() + " overflow...");
+						//System.out.println("=> Time " + this.segmentTimestamp + " > " + this.segmentDuration);
 						
 						this.segmentIndex++;
 						MediaSegment seg = this.getCurrentSegment();
 						
 						if (seg == null) {
-							System.out.println("=> Next segment is null, re-sync...");
+							//System.out.println("=> Next segment is null, re-sync...");
 							this.segmentIndex = -1;
 							this.playlistRequestLastSegmentIndex = -1;  // Temporary fix to avoid init infinite loop
-							this.stopAndRemoveGrabber();
+							this.stopGrabberAndRemove();
 							break;
 						}
 						
-						System.out.println("=> Going next segment and removing grabber...");
-						this.stopAndRemoveGrabber();
+						//System.out.println("=> Going next segment and removing grabber...");
+						this.stopGrabberAndRemove();
 						remainingTime = this.segmentTimestamp - this.segmentDuration;
 						this.segmentDuration = seg.duration();
 						this.segmentTimestamp = 0;
@@ -307,7 +361,7 @@ public class DisplayLayer extends RenderLayer {
 	
 	        if (this.segmentIndex == -1) {
 		
-		        System.out.println("Display (re)initialization...");
+		        //System.out.println("Display (re)initialization...");
 				
 		        // Here we need use this complex algorithm to seek
 		        // 'SAFE_LATENCY' seconds before the end.
@@ -322,7 +376,7 @@ public class DisplayLayer extends RenderLayer {
 			        totalDuration += seg.duration();
 		        }
 		
-		        this.stopAndRemoveGrabber();
+		        this.stopGrabberAndRemove();
 		        double globalTimestamp = totalDuration;
 		
 		        this.segmentIndex = this.playlistOffset + (this.playlistSegments.size() - 1);
@@ -366,15 +420,22 @@ public class DisplayLayer extends RenderLayer {
         }
 	 
 	    private void fetchFrame() throws IOException {
-			Frame frame = this.grabber.grabUntil((long) (this.segmentTimestamp * 1000000));
+
+			Frame frame = this.grabber.grabUntil((long) (this.segmentTimestamp * 1000000), soundFrame -> {
+				this.soundSource.uploadAndEnqueue(soundFrame);
+				this.soundSource.unqueueAndDelete();
+			});
+
 			if (frame != null) {
 				this.tex.upload(frame);
 			}
+
 	    }
 
         private void tick() {
 	
 	        // System.out.println("--------------------");
+
 	        long tickStart = System.nanoTime();
 			
 	        try {
@@ -386,11 +447,18 @@ public class DisplayLayer extends RenderLayer {
 	        } catch (IOException e) {
 		        e.printStackTrace();
 	        }
+
+			long now = System.nanoTime();
+			if (now - this.lastCleanup >= CLEANUP_INTERVAL) {
+				this.cleanupUnusedGrabbers(now);
+				this.lastCleanup = now;
+			}
 	
 	        printTime("tick", tickStart);
 
         }
-		
+
+		@SuppressWarnings("unused")
 		private static void printTime(String name, long start) {
 			// System.out.println(name + ": " + ((double) (System.nanoTime() - start) / 1000000.0) + "ms");
 		}
@@ -399,9 +467,9 @@ public class DisplayLayer extends RenderLayer {
 	
 	private final Inner inner;
 
-    public DisplayLayer(DisplayLayerManager manager, Source source) {
+    public DisplayLayer(ExecutorService executor, Source source) {
 		// We are using an inner class just for the "super" call to be first.
-        this(new Inner(manager, source));
+        this(new Inner(executor, source));
     }
 
     private DisplayLayer(Inner inner) {
@@ -409,6 +477,7 @@ public class DisplayLayer extends RenderLayer {
         super("display", VertexFormats.POSITION_TEXTURE, VertexFormat.DrawMode.QUADS,
                 256, false, true,
                 () -> {
+					inner.lastUse = System.nanoTime();
                     POSITION_TEXTURE_SHADER.startDrawing();
                     RenderSystem.enableTexture();
                     RenderSystem.setShaderTexture(0, inner.tex.getGlId());
@@ -418,13 +487,38 @@ public class DisplayLayer extends RenderLayer {
 		this.inner = inner;
 		
     }
-	
-	public void tickDisplay() {
+
+	/**
+	 * Free this display layer. <b>It should not be used again after!</b>
+	 */
+	public void displayFree() {
+		this.inner.free();
+	}
+
+	/**
+	 * Tick the display layer.
+	 */
+	public void displayTick() {
 		this.inner.tick();
 	}
-	
-	public void setDisplayPosition(Vec3i pos) {
+
+	/**
+	 * Set the position of the display, used to change the sound source.
+	 * @param pos The position of the display.
+	 */
+	public void displaySetPos(Vec3i pos) {
+		// TODO: Use only the nearest source as the main and single source.
 		this.inner.soundSource.setPosition(pos);
+	}
+
+	/**
+	 * Check if this layer is unused for too long, in such case
+	 * @param now The reference timestamp (monotonic nanoseconds
+	 *               from {@link System#nanoTime()}).
+	 * @return True if the layer is unused for too long.
+	 */
+	public boolean displayIsUnused(long now) {
+		return now - this.inner.lastUse >= LAYER_UNUSED_TIMEOUT;
 	}
 
 }

@@ -5,6 +5,7 @@ import org.bytedeco.javacv.Frame;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.function.Consumer;
 
 public class FrameGrabber {
 
@@ -13,6 +14,9 @@ public class FrameGrabber {
 	/** The last frame grabbed. Usually the same object for every call. */
 	private Frame lastFrame = null;
 
+	/** True if the last frame was already sent. */
+	private boolean lastFrameSent = false;
+
 	/** Current frame number. */
 	private int lastFrameNumber = -1;
 
@@ -20,6 +24,7 @@ public class FrameGrabber {
 	private double videoFrameRate = 0.0;
 
 	public FrameGrabber(InputStream inputStream) {
+		// TODO: Maybe pre-downloading could be a good idea to avoid lags on grabs.
 		this.grabber = new FFmpegFrameGrabber(inputStream);
 	}
 
@@ -30,12 +35,15 @@ public class FrameGrabber {
 
 		// Also, preload the first image frame
 		this.lastFrameNumber = 0;
+		this.lastFrameSent = false;
 		this.lastFrame = this.grabber.grabImage();
 
 	}
 
-	public void stop() throws IOException {
-		this.grabber.releaseUnsafe();
+	public void stop() {
+		try {
+			this.grabber.releaseUnsafe();
+		} catch (IOException ignored) { }
 	}
 
 	/**
@@ -44,9 +52,7 @@ public class FrameGrabber {
 	 * @param timestamp The timestamp in microseconds.
 	 * @return The grabbed frame or null if frame has not updated since last grab.
 	 */
-	public Frame grabUntil(long timestamp) throws IOException {
-
-		// TODO: Handle audio
+	public Frame grabUntil(long timestamp, Consumer<Frame> soundConsumer) throws IOException {
 
 		if (timestamp < 0) {
 			throw new IllegalArgumentException();
@@ -54,13 +60,22 @@ public class FrameGrabber {
 
 		int targetFrameNumber = (int) ((double) timestamp / 1000000.0 * this.videoFrameRate);
 		if (targetFrameNumber <= this.lastFrameNumber) {
-			return null;
+			if (this.lastFrameSent) {
+				return null;
+			} else {
+				this.lastFrameSent = true;
+				return this.lastFrame;
+			}
 		}
 
 		Frame frame;
 		while ((frame = this.grabber.grab()) != null) {
+			if (frame.samples != null) {
+				soundConsumer.accept(frame);
+			}
 			if (frame.image != null) {
 				this.lastFrameNumber++;
+				this.lastFrameSent = true;
 				this.lastFrame = frame; // last frame might be useless
 				if (targetFrameNumber == this.lastFrameNumber) {
 					return frame;
@@ -71,38 +86,5 @@ public class FrameGrabber {
 		return null;
 
 	}
-	
-	/*@Override
-	public synchronized Frame grabFrame(boolean doAudio, boolean doVideo, boolean doProcessing, boolean keyFrames, boolean doData) throws Exception {
-		
-		if (this.nextFrame != null) {
-			Frame ret = this.nextFrame;
-			this.nextFrame = null;
-			return ret;
-		}
-		
-		Frame frame = super.grabFrame(doAudio, doVideo, doProcessing, keyFrames, doData);
-
-		if (frame != null) {
-
-			if (this.firstFrameTimestamp == 0) {
-				this.firstFrameTimestamp = frame.timestamp;
-				frame.timestamp = 0;
-			} else {
-				frame.timestamp -= this.firstFrameTimestamp;
-				if (frame.timestamp < 0) {
-					frame.timestamp = 0;
-				}
-			}
-
-			if (frame.image != null) {
-				this.videoFrameNumber++;
-			}
-
-		}
-		
-		return frame;
-		
-	}*/
 
 }

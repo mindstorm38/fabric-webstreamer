@@ -22,6 +22,12 @@ public class DisplaySoundSource {
 		this.setAttenuation(20);
 		this.setVolume(1.0f);
 	}
+
+	public void free() {
+		AL10.alSourceStop(this.sourceId);
+		this.unqueueAndDelete();
+		AL10.alDeleteSources(this.sourceId);
+	}
 	
 	public void setPosition(Vec3i pos) {
 		AL10.alSourcefv(this.sourceId, AL10.AL_POSITION, new float[] {(float) pos.getX() + 0.5f, (float) pos.getY() + 0.5f, (float) pos.getZ() + 0.5f});
@@ -72,9 +78,9 @@ public class DisplaySoundSource {
 		if (AL10.alGetSourcef(this.sourceId, AL10.AL_SOURCE_STATE) !=  AL10.AL_PLAYING) {
 			AL10.alSourcePlay(this.sourceId);
 		}
-		
+
 		return true;
-		
+
 	}
 	
 	public void unqueueAndDelete() {
@@ -110,5 +116,5 @@ public class DisplaySoundSource {
 			default -> "An unrecognized error occurred.";
 		};
 	}
-	
+
 }
