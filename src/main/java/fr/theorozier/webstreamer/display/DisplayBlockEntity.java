@@ -12,12 +12,18 @@ import java.net.URL;
 
 public class DisplayBlockEntity extends BlockEntity {
 
-    private int width = 1, height = 1;
+    private float width = 1;
+    private float height = 1;
     private Source source;
+
+    private float widthOffset = 0f;
+    private float heightOffset = 0f;
 
     public DisplayBlockEntity(BlockPos pos, BlockState state) {
         super(WebStreamerMod.DISPLAY_BLOCK_ENTITY, pos, state);
-        this.setSourceUrl("https://video-weaver.mrs02.hls.ttvnw.net/v1/playlist/CooF6w-DJQEcvg-A19oP3y15F3lnpGu7TtTXLamiSoJDjeOa6Q-g-V8jpZ40a3P_7ijdc3ytypwwDSrNx1NJ4gGSssUx1sHrRcIZNLWvEZ6XHPlvgbaxk3pVETZSpgHXtsSvx_YSkKG5zDKRGIJueZG2B9W0BjINYhfGtSk2uiKYDxPKdsKyFgt2AO59AXF9o66CxHePAgBEqzUdYmuYLgffG4BT7zwmcKGoaNyH3HDbbf2__KP768XyUL7bfsE8v9-OyfsMOGpvbi6n3-MHOHR0ZJWxANlihm9o_crODYhEA9R1uxl4eMEtoMOziOzkq1ksuxIoAs7XtgwkxfFFgH0dcUt4Fd3ngDKfVBpOainbK1A4Vh8YqyP40h5R1TiXKmJAPI_FoP9ynyenN2KbOnGFrZAlM6W1JP3GjuTRLntOgJRzIWQtj1DmQwINHmjhXbfo0njlhNJTt2egGSWu9SXQKN7XNSJw6QDj2jadTnwy_pzwmW8lC7xkkN5bW0wGOlYRGZLFuDwZfFQysT9GMnoutUKjxeUpIUIkhktdvuyKoyThWSb9MNH2li_8NPp7UvToWn7A7UGJXsa5Bnked7wCgLtnwY97D-BpmJRhOzSm1viaYP3PKG8pWE-PSaaChpzwlA2-EW5V4gWmXm5EgZrVnT0akh4BUIAzvDRoJHzg6dT8I2ipyqoAAy07nlzXVXzmUSZ4srUbE6jKnB-_la_THwMhDRQk4XRmrtjutsFPq6kKgV5Zat6vDiG8Cyy5qpJ0yipIAd_jZdvZQ14GuJxkwIj2Lu4fIf6mxNKA-sxK8QtrWB2oWcSDevAJ1YegBLY-i91Gj3oxfmW-AWtwizXe3FIHNgpDeQkNZusaDDKu_jM2IIImOAhU9iABKglldS13ZXN0LTIwqwM.m3u8");
+        this.setSourceUrl("https://video-weaver.mrs02.hls.ttvnw.net/v1/playlist/Cv4ESK-A7H1zrtNT-HFq6dy5RYZIgcQ9MqGExrE0njyAZXFCND7SGTUfC48obcKwwqxWnroBeNNrhgIFsHjm6GjmSq-PBl0Rvx9xpnxL3ojHc8P6CKChqw0WNBy46vgoUDKXedTLS7InqtYKTLEhp_FJl0rw5hqs831cQvbGGIVgr0PcPcbwX6GXqJ7EDIgFls15Nj4GZeYmJXjznq-OoEPd1n5pyMu1t_1m09N3SCBDkFBw7J18cqpbv71ofGq1E6D3GS2ExEXoIpUdzYHBaPfPBEE2CZHQ2VChvqEFM9TlVq3bYK9P903pjrqhbXEI2XhfWqFJ5WidLcQPv_rGyZWB29NB6_lXVStYh-H75f-bSfNS0G7RR_Wv8z-5KA9o-92-UIGQo_HDpWbSRe93H5UCKFdYvuJ4mkSZpHLp1VKlkXPto1kYc6eCd5S7de_CtD8C5JKzQAll-yyy_umX3hYJt5TFkAOx6cIHssXE-Kj7WOnJt9ixwb13sSANHEBnHue87A2QddSfdAqqYFWWIQSc45vGM4f0OqjcQ_vT4ydrDQk6c6QhoMq23tC62WxGzDIwkQAiW9S8xx-ygymOZmU9PE9DEQHhLOwsnTzsav7N6XUPAFAXlB1TYABh3sc6Gi338qkrGYY26XNwWsN5Fh_G46GGRSVpJJs5tHGLIgqT0KADJeqJk9bw6Eu-Vy-omPTUVUO4c9KFvFYu7WkpdKAbwbK-PhNo7IgsXwB65XM94xOkagBAyTPFCQZR0KqOTutITH_K3juMkLw9QCgTmMBV61tsVKGNV61TMOs5NPEBJWPSCGuJmqWLcLy3A9qXnlW5JLU1vhyGdEqet7SVSzAaDBThENgp4HEx29o50CABKglldS13ZXN0LTIwrAM.m3u8");
+        this.setWidth(16f / 4);
+        this.setHeight(9f / 4);
     }
 
     public Source getSource() {
@@ -31,7 +37,41 @@ public class DisplayBlockEntity extends BlockEntity {
             throw new IllegalArgumentException(e);
         }
     }
-    
+
+    public void setWidth(float width) {
+        this.width = width;
+        this.computeWidthOffset();
+    }
+
+    public void setHeight(float height) {
+        this.height = height;
+        this.computeHeightOffset();
+    }
+
+    private void computeWidthOffset() {
+        this.widthOffset = (this.width - 1) / -2f;
+    }
+
+    private void computeHeightOffset() {
+        this.heightOffset = (this.height - 1) / -2f;
+    }
+
+    public float getWidth() {
+        return width;
+    }
+
+    public float getHeight() {
+        return height;
+    }
+
+    public float getWidthOffset() {
+        return widthOffset;
+    }
+
+    public float getHeightOffset() {
+        return heightOffset;
+    }
+
     @Override
     protected void writeNbt(NbtCompound nbt) {
         super.writeNbt(nbt);

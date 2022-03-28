@@ -216,12 +216,13 @@ public class DisplayLayer extends RenderLayer {
         private boolean fetchSegment() throws IOException {
 			
 			// This is the latency we force from the last segment.
-            final double SAFE_LATENCY = 6.0;
+            final double SAFE_LATENCY = 8.0;
             
 			// The speed factor can be adjusted by various elements.
 			double speedFactor = 1.0;
 			
 			if (this.segmentIndex == this.playlistOffset) {
+				System.out.println("Fast forward enabled...");
 				// If we are in the first segment, add a little speed factor in order to avoid
 				// getting out of the playlist.
 				speedFactor = 1.1;
@@ -365,20 +366,10 @@ public class DisplayLayer extends RenderLayer {
         }
 	 
 	    private void fetchFrame() throws IOException {
-		    Frame frame;
-		    while ((frame = this.grabber.grab()) != null) {
-			    if (frame.image != null) {
-				    double frameTimestamp = (double) frame.timestamp / 1000000.0;
-				    if (frameTimestamp >= this.segmentTimestamp) {
-					    this.tex.upload(frame);
-						break;
-				    }
-			    }
-				if (frame.samples != null) {
-					this.soundSource.uploadAndEnqueue(frame);
-					this.soundSource.unqueueAndDelete();
-				}
-		    }
+			Frame frame = this.grabber.grabUntil((long) (this.segmentTimestamp * 1000000));
+			if (frame != null) {
+				this.tex.upload(frame);
+			}
 	    }
 
         private void tick() {
