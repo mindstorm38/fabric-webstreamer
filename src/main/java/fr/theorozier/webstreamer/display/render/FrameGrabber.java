@@ -17,16 +17,9 @@ import java.nio.ShortBuffer;
 public class FrameGrabber {
 
 	private final FFmpegFrameGrabber grabber;
-	private double videoFrameRate = 0.0;
-
-	/** The last frame grabbed. Usually the same object for every call. */
-	private Frame lastFrame = null;
-
-	/** True if the last frame was already sent. */
-	private boolean lastFrameSent = false;
-
-	/** Current frame number. */
-	private int lastFrameNumber = -1;
+	private long refTimestamp;
+	private long deltaTimestamp;
+	private Frame lastFrame;
 
 	/** Buffers for OpenAL audio buffers to play. */
 	private final IntArrayFIFOQueue alAudioBuffers = new IntArrayFIFOQueue();
@@ -39,21 +32,19 @@ public class FrameGrabber {
 	public void start() throws IOException {
 
 		this.grabber.startUnsafe();
-		this.videoFrameRate = this.grabber.getVideoFrameRate();
 
-		// Also, preload the first image frame
-		this.lastFrameNumber = 0;
-		this.lastFrameSent = false;
+		this.refTimestamp = 0L;
+		this.deltaTimestamp = 0L;
+		this.lastFrame = null;
 
-		int i = 0;
 		Frame frame;
 		while ((frame = this.grabber.grab()) != null) {
 			if (frame.samples != null) {
-				double ts = (double) frame.timestamp / 1000000.0;
-				System.out.println("[" + (i++) + "] found audio buffer on start at " + ts);
 				this.pushAudioBuffer(frame);
 			} else if (frame.image != null) {
+				this.refTimestamp = frame.timestamp;
 				this.lastFrame = frame;
+				this.lastFrame.timestamp = 0L;
 				break;
 			}
 		}
@@ -73,46 +64,86 @@ public class FrameGrabber {
 	}
 
 	/**
-	 * Grab the frame at the corresponding timestamp, the grabber will attempt to
-	 * get the closest frame before timestamp.
+	 * Grab the image frame at the corresponding timestamp, the grabber will attempt
+	 * to get the closest frame before timestamp.
 	 * @param timestamp The timestamp in microseconds.
 	 * @return The grabbed frame or null if frame has not updated since last grab.
 	 */
 	public Frame grabUntil(long timestamp) throws IOException {
 
-		if (timestamp < 0) {
-			throw new IllegalArgumentException();
-		}
-
-		int targetFrameNumber = (int) ((double) timestamp / 1000000.0 * this.videoFrameRate);
-		if (targetFrameNumber <= this.lastFrameNumber) {
-			if (this.lastFrameSent) {
-				return null;
+		if (this.lastFrame != null) {
+			if (this.lastFrame.timestamp <= timestamp) {
+				Frame frame = this.lastFrame;
+				this.lastFrame = null;
+				return frame;
 			} else {
-				this.lastFrameSent = true;
-				return this.lastFrame;
+				return null;
 			}
 		}
 
 		Frame frame;
 		while ((frame = this.grabber.grab()) != null) {
-			if (frame.samples != null) {
-				this.pushAudioBuffer(frame);
-			} else if (frame.image != null) {
-				this.lastFrameNumber++;
-				this.lastFrameSent = true;
-				this.lastFrame = frame; // last frame might be useless
-				if (targetFrameNumber == this.lastFrameNumber) {
-					return frame;
+			if (frame.image != null) {
+
+				frame.timestamp -= this.refTimestamp;
+
+				if (this.deltaTimestamp == 0) {
+					this.deltaTimestamp = frame.timestamp;
 				}
+
+				if (frame.timestamp <= timestamp) {
+					// Delta of the current frame with the targeted timestamp
+					long delta = timestamp - frame.timestamp;
+					if (delta <= this.deltaTimestamp) {
+						return frame;
+					}
+				} else {
+					this.lastFrame = frame;
+					break;
+				}
+
 			}
 		}
 
 		return null;
 
+
+//		int targetFrameNumber = (int) ((double) timestamp / 1000000.0 * this.videoFrameRate);
+//
+//		// System.out.println("ts: " + ((double) timestamp / 1000000.0) + ", frame n°: " + targetFrameNumber + ", last frame n°: " + this.lastFrameNumber + ", fps: " + this.videoFrameRate);
+//
+//		if (targetFrameNumber <= this.lastFrameNumber) {
+//			if (this.lastFrameSent) {
+//				return null;
+//			} else {
+//				this.lastFrameSent = true;
+//				return this.lastFrame;
+//			}
+//		}
+//
+//		Frame frame;
+//		while ((frame = this.grabber.grab()) != null) {
+//			if (frame.samples != null) {
+//				//this.lastFrameNumber++;
+//				this.lastFrameSent = true;
+//				this.lastFrame = frame; // last frame might be useless
+//				// System.out.println("frame ts: " + ((double) frame.timestamp / 1000000.0) + ", fps: " + this.videoFrameRate);
+//				/*if (targetFrameNumber == this.lastFrameNumber) {
+//					return frame;
+//				}*/
+//			}
+//		}
+//
+//		return null;
+
 	}
 
+	/*private static double microToSec(long micro) {
+		return (double) micro / 1000000.0;
+	}*/
+
 	public void grabRemaining() throws IOException {
+		// FIXME: Might be useless
 		Frame frame;
 		while ((frame = this.grabber.grab()) != null) {
 			if (frame.samples != null) {
@@ -142,7 +173,7 @@ public class FrameGrabber {
 			throw new IllegalArgumentException("Unsupported sample format.");
 		}
 
-		this.alAudioBuffers.enqueue(bufferId);
+		//this.alAudioBuffers.enqueue(bufferId);
 
 	}
 

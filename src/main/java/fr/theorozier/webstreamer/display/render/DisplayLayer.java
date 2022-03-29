@@ -35,7 +35,7 @@ public class DisplayLayer extends RenderLayer {
 	/** The timeout for grabber's request. */
 	private static final long GRABBER_REQUEST_TIMEOUT = 10L * 1000000000L;
 	/** Interval of internal cleanups (unused grabbers). */
-	private static final long CLEANUP_INTERVAL = 5L * 1000000000L;
+	private static final long CLEANUP_INTERVAL = 10L * 1000000000L;
 
     private static class Inner {
 
@@ -217,7 +217,7 @@ public class DisplayLayer extends RenderLayer {
 			MediaSegment seg = this.getSegment(index);
 			if (seg != null) {
 				this.futureGrabbers.computeIfAbsent(index, index0 -> {
-					//System.out.println("=> Request grabber for segment " + index0 + "/" + this.getLastSegmentIndex());
+					// System.out.println("=> Request grabber for segment " + index0 + "/" + this.getLastSegmentIndex());
 					return new FutureGrabber(this.executor.submit(() -> {
 						URL segmentUrl = this.source.getContextUrl(seg.uri());
 						FrameGrabber grabber = new FrameGrabber(segmentUrl.openStream());
@@ -284,16 +284,12 @@ public class DisplayLayer extends RenderLayer {
 	
             if (this.segmentIndex != -1) {
 	
-	            long segmentStart = System.nanoTime();
-	
 				// Tries to pull the playlist if being requested.
 	            this.pullPlaylist();
 				
 				// This algorithm tries to go forward in segments by elapsedTime.
 				double remainingTime = elapsedTime;
 	
-	            long loopStart = System.nanoTime();
-				
 				for (;;) {
 					
 					// If we are too slow and the current segment is now out of the playlist.
@@ -306,10 +302,10 @@ public class DisplayLayer extends RenderLayer {
 					
 					this.segmentTimestamp += remainingTime;
 					if (this.segmentTimestamp > this.segmentDuration) {
-						
+
 						//System.out.println("Segment " + this.segmentIndex + "/" + this.getLastSegmentIndex() + " overflow...");
 						//System.out.println("=> Time " + this.segmentTimestamp + " > " + this.segmentDuration);
-						
+
 						this.segmentIndex++;
 						MediaSegment seg = this.getCurrentSegment();
 						
@@ -333,34 +329,21 @@ public class DisplayLayer extends RenderLayer {
 					
 				}
 				
-	            printTime("segment loop", loopStart);
-	
 				int offsetFromLastSegment = this.getLastSegmentIndex() - this.segmentIndex;
 				
 				if (offsetFromLastSegment <= 1) {
-					long requestStart = System.nanoTime();
 					// We are at most 1 segment from the end, so request a new playlist.
 					this.requestPlaylist();
-					printTime("request playlist", requestStart);
 				}
 				
 				if (offsetFromLastSegment >= 1) {
-					long requestStart = System.nanoTime();
 					// If we have at least one segment after the current one, preload it.
 					this.requestGrabber(this.segmentIndex + 1);
-					printTime("request grabber", requestStart);
 				}
-	
-	            printTime("segment", segmentStart);
 	
             }
 	
 	        if (this.segmentIndex == -1) {
-		
-		        //System.out.println("Display (re)initialization...");
-				
-		        // Here we need use this complex algorithm to seek
-		        // 'SAFE_LATENCY' seconds before the end.
 		
 		        if (!this.pullPlaylist()) {
 					this.requestPlaylist();
@@ -436,11 +419,6 @@ public class DisplayLayer extends RenderLayer {
 			}
 	
         }
-
-		@SuppressWarnings("unused")
-		private static void printTime(String name, long start) {
-			// System.out.println(name + ": " + ((double) (System.nanoTime() - start) / 1000000.0) + "ms");
-		}
 
     }
 	
