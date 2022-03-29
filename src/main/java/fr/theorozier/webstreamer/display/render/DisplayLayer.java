@@ -74,6 +74,9 @@ public class DisplayLayer extends RenderLayer {
 		/** Frame grabber for the current segment. */
         private FrameGrabber grabber;
 
+		/** True if this is the first grabber after an initialisation. */
+		private boolean firstGrabber;
+
 		/** A tuple of future and the time it was created at, used to cleanup timed out grabbers. */
 		private record FutureGrabber(Future<FrameGrabber> future, long time) {
 
@@ -228,7 +231,7 @@ public class DisplayLayer extends RenderLayer {
 			}
 		}
 		
-		private boolean pullGrabberAndUse(int index, boolean grabRemaining) throws IOException {
+		private boolean pullGrabberAndUse(int index) throws IOException {
 			FutureGrabber futureGrabber = this.futureGrabbers.get(index);
 			if (futureGrabber != null) {
 				Future<FrameGrabber> future = futureGrabber.future;
@@ -236,7 +239,7 @@ public class DisplayLayer extends RenderLayer {
 					if (!future.isCancelled()) {
 						try {
 							FrameGrabber grabber = future.get();
-							this.stopGrabber(grabRemaining);
+							this.stopGrabber(true);
 							this.grabber = grabber;
 							// This grabber should have been started by the task.
 							this.futureGrabbers.remove(index);
@@ -387,20 +390,31 @@ public class DisplayLayer extends RenderLayer {
 			        }
 			
 		        }
+
+				this.firstGrabber = true;
 		
 	        }
 			
             if (this.grabber == null) {
-				if (!this.pullGrabberAndUse(this.segmentIndex, true)) {
+				if (!this.pullGrabberAndUse(this.segmentIndex)) {
 					return;
 				}
             }
 
-			Frame frame = this.grabber.grabUntil((long) (this.segmentTimestamp * 1000000));
-			this.grabber.grabAudioAndUpload(this.soundSource);
+			long segmentTimestampMicros = (long) (this.segmentTimestamp * 1000000);
+
+			Frame frame = this.grabber.grabAt(segmentTimestampMicros);
 			if (frame != null) {
 				this.tex.upload(frame);
 			}
+
+			if (this.firstGrabber) {
+				this.firstGrabber = false;
+				System.out.println("skip audio before " + this.segmentTimestamp);
+				this.grabber.skipAudioBufferBefore(segmentTimestampMicros);
+			}
+
+			this.grabber.grabAudioAndUpload(this.soundSource);
 			
         }
 

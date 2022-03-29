@@ -1,6 +1,5 @@
 package fr.theorozier.webstreamer.display.render;
 
-import it.unimi.dsi.fastutil.ints.IntArrayFIFOQueue;
 import org.bytedeco.javacv.FFmpegFrameGrabber;
 import org.bytedeco.javacv.Frame;
 import org.lwjgl.openal.AL10;
@@ -10,6 +9,8 @@ import java.io.InputStream;
 import java.nio.Buffer;
 import java.nio.ByteBuffer;
 import java.nio.ShortBuffer;
+import java.util.ArrayDeque;
+import java.util.Iterator;
 
 /**
  * A specialized frame grabber for displays.
@@ -22,7 +23,14 @@ public class FrameGrabber {
 	private Frame lastFrame;
 
 	/** Buffers for OpenAL audio buffers to play. */
-	private final IntArrayFIFOQueue alAudioBuffers = new IntArrayFIFOQueue();
+	private final ArrayDeque<TimedAudioBuffer> audioBuffers = new ArrayDeque<>();
+
+
+	private record TimedAudioBuffer(int alBufferId, long timestamp) {
+		void delete() {
+			AL10.alDeleteBuffers(this.alBufferId);
+		}
+	}
 
 	public FrameGrabber(InputStream inputStream) {
 		// TODO: Maybe pre-downloading could be a good idea to avoid lags on grabs.
@@ -45,6 +53,9 @@ public class FrameGrabber {
 				this.lastFrame.timestamp = 0L;
 				break;
 			} else if (frame.samples != null) {
+				// It is intentional for audio frames to keep their real timestamp
+				// because we usually get audio frames before the first image frame
+				// and therefor we can't know the relative timestamp.
 				this.pushAudioBuffer(frame);
 			}
 		}
@@ -57,8 +68,8 @@ public class FrameGrabber {
 			this.grabber.releaseUnsafe();
 		} catch (IOException ignored) { }
 
-		while (!this.alAudioBuffers.isEmpty()) {
-			AL10.alDeleteBuffers(this.alAudioBuffers.dequeueInt());
+		while (!this.audioBuffers.isEmpty()) {
+			this.audioBuffers.poll().delete();
 		}
 
 	}
@@ -69,7 +80,23 @@ public class FrameGrabber {
 	 * @param timestamp The timestamp in microseconds.
 	 * @return The grabbed frame or null if frame has not updated since last grab.
 	 */
-	public Frame grabUntil(long timestamp) throws IOException {
+	public Frame grabAt(long timestamp) throws IOException {
+
+//		if (!this.firstGrabbed) {
+//			this.firstGrabbed = true;
+//			System.out.println("first grab at: " + ((double) timestamp / 1000000.0));
+//			/*long realTimestamp = timestamp + this.refTimestamp;
+//			// For the first grab on a grabber, we discard all sound buffers
+//			// previous to it.
+//			Iterator<TimedAudioBuffer> it = this.audioBuffers.iterator();
+//			while (it.hasNext()) {
+//				TimedAudioBuffer buf = it.next();
+//				if (buf.timestamp < realTimestamp) {
+//					buf.delete();
+//					it.remove();
+//				}
+//			}*/
+//		}
 
 		if (this.lastFrame != null) {
 			if (this.lastFrame.timestamp <= timestamp) {
@@ -85,6 +112,8 @@ public class FrameGrabber {
 		while ((frame = this.grabber.grab()) != null) {
 			if (frame.image != null) {
 
+				// Only image frames sees their timestamp modified.
+				// Audio frame keep their real timestamp.
 				frame.timestamp -= this.refTimestamp;
 
 				if (this.deltaTimestamp == 0) {
@@ -109,43 +138,9 @@ public class FrameGrabber {
 
 		return null;
 
-
-//		int targetFrameNumber = (int) ((double) timestamp / 1000000.0 * this.videoFrameRate);
-//
-//		// System.out.println("ts: " + ((double) timestamp / 1000000.0) + ", frame n°: " + targetFrameNumber + ", last frame n°: " + this.lastFrameNumber + ", fps: " + this.videoFrameRate);
-//
-//		if (targetFrameNumber <= this.lastFrameNumber) {
-//			if (this.lastFrameSent) {
-//				return null;
-//			} else {
-//				this.lastFrameSent = true;
-//				return this.lastFrame;
-//			}
-//		}
-//
-//		Frame frame;
-//		while ((frame = this.grabber.grab()) != null) {
-//			if (frame.samples != null) {
-//				//this.lastFrameNumber++;
-//				this.lastFrameSent = true;
-//				this.lastFrame = frame; // last frame might be useless
-//				// System.out.println("frame ts: " + ((double) frame.timestamp / 1000000.0) + ", fps: " + this.videoFrameRate);
-//				/*if (targetFrameNumber == this.lastFrameNumber) {
-//					return frame;
-//				}*/
-//			}
-//		}
-//
-//		return null;
-
 	}
 
-	/*private static double microToSec(long micro) {
-		return (double) micro / 1000000.0;
-	}*/
-
 	public void grabRemaining() throws IOException {
-		// FIXME: Might be useless
 		Frame frame;
 		while ((frame = this.grabber.grab()) != null) {
 			if (frame.samples != null) {
@@ -155,8 +150,25 @@ public class FrameGrabber {
 	}
 
 	public void grabAudioAndUpload(DisplaySoundSource source) {
-		while (!this.alAudioBuffers.isEmpty()) {
-			source.enqueueRaw(this.alAudioBuffers.dequeueInt());
+		while (!this.audioBuffers.isEmpty()) {
+			source.enqueueRaw(this.audioBuffers.poll().alBufferId);
+		}
+	}
+
+	/**
+	 * Skip and delete all audio buffers that are timestamped before the given timestamp.
+	 * @param timestamp The relative reference timestamp.
+	 */
+	public void skipAudioBufferBefore(long timestamp) {
+		long realTimestamp = timestamp + this.refTimestamp;
+		// For the first grab on a grabber, we discard all sound buffers
+		// previous to it.
+		while (!this.audioBuffers.isEmpty()) {
+			TimedAudioBuffer buf = this.audioBuffers.peek();
+			if (buf.timestamp < realTimestamp) {
+				buf.delete();
+				this.audioBuffers.remove();
+			}
 		}
 	}
 
@@ -175,7 +187,7 @@ public class FrameGrabber {
 			throw new IllegalArgumentException("Unsupported sample format.");
 		}
 
-		this.alAudioBuffers.enqueue(bufferId);
+		this.audioBuffers.add(new TimedAudioBuffer(bufferId, frame.timestamp));
 
 	}
 
