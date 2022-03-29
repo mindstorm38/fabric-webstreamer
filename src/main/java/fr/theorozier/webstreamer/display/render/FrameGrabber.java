@@ -39,13 +39,13 @@ public class FrameGrabber {
 
 		Frame frame;
 		while ((frame = this.grabber.grab()) != null) {
-			if (frame.samples != null) {
-				this.pushAudioBuffer(frame);
-			} else if (frame.image != null) {
+			if (frame.image != null) {
 				this.refTimestamp = frame.timestamp;
 				this.lastFrame = frame;
 				this.lastFrame.timestamp = 0L;
 				break;
+			} else if (frame.samples != null) {
+				this.pushAudioBuffer(frame);
 			}
 		}
 
@@ -102,6 +102,8 @@ public class FrameGrabber {
 					break;
 				}
 
+			} else if (frame.samples != null) {
+				this.pushAudioBuffer(frame);
 			}
 		}
 
@@ -173,7 +175,7 @@ public class FrameGrabber {
 			throw new IllegalArgumentException("Unsupported sample format.");
 		}
 
-		//this.alAudioBuffers.enqueue(bufferId);
+		this.alAudioBuffers.enqueue(bufferId);
 
 	}
 
