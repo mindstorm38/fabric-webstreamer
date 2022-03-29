@@ -1,5 +1,7 @@
 package fr.theorozier.webstreamer.display.render;
 
+import net.fabricmc.api.EnvType;
+import net.fabricmc.api.Environment;
 import org.bytedeco.javacv.FFmpegFrameGrabber;
 import org.bytedeco.javacv.Frame;
 import org.lwjgl.openal.AL10;
@@ -10,11 +12,11 @@ import java.nio.Buffer;
 import java.nio.ByteBuffer;
 import java.nio.ShortBuffer;
 import java.util.ArrayDeque;
-import java.util.Iterator;
 
 /**
  * A specialized frame grabber for displays.
  */
+@Environment(EnvType.CLIENT)
 public class FrameGrabber {
 
 	private final FFmpegFrameGrabber grabber;

@@ -2,14 +2,19 @@ package fr.theorozier.webstreamer.display;
 
 import net.minecraft.block.*;
 import net.minecraft.block.entity.BlockEntity;
+import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.ItemPlacementContext;
 import net.minecraft.sound.BlockSoundGroup;
 import net.minecraft.state.StateManager;
 import net.minecraft.state.property.Properties;
+import net.minecraft.util.ActionResult;
+import net.minecraft.util.Hand;
+import net.minecraft.util.hit.BlockHitResult;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.shape.VoxelShape;
 import net.minecraft.util.shape.VoxelShapes;
 import net.minecraft.world.BlockView;
+import net.minecraft.world.World;
 import org.jetbrains.annotations.Nullable;
 
 public class DisplayBlock extends BlockWithEntity {
@@ -27,8 +32,6 @@ public class DisplayBlock extends BlockWithEntity {
                 .nonOpaque());
     }
     
-    
-
     @Override
     protected void appendProperties(StateManager.Builder<Block, BlockState> builder) {
         builder.add(Properties.HORIZONTAL_FACING);
@@ -61,5 +64,16 @@ public class DisplayBlock extends BlockWithEntity {
             default -> null;
         };
     }
-    
+
+    @Override
+    public ActionResult onUse(BlockState state, World world, BlockPos pos, PlayerEntity player, Hand hand, BlockHitResult hit) {
+        BlockEntity be = world.getBlockEntity(pos);
+        if (be instanceof DisplayBlockEntity dbe && player instanceof DisplayBlockInteract interact) {
+            interact.openDisplayBlockScreen(dbe);
+            return ActionResult.success(true);
+        } else {
+            return ActionResult.PASS;
+        }
+    }
+
 }

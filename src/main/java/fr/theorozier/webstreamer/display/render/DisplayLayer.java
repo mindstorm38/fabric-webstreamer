@@ -7,6 +7,8 @@ import io.lindstrom.m3u8.model.MediaSegment;
 import io.lindstrom.m3u8.parser.MediaPlaylistParser;
 import io.lindstrom.m3u8.parser.ParsingMode;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
+import net.fabricmc.api.EnvType;
+import net.fabricmc.api.Environment;
 import net.minecraft.client.render.RenderLayer;
 import net.minecraft.client.render.VertexFormat;
 import net.minecraft.client.render.VertexFormats;
@@ -27,6 +29,7 @@ import java.util.concurrent.Future;
  * Every call to this class must be done from render thread,
  * this is not checked so user have to check this!
  */
+@Environment(EnvType.CLIENT)
 public class DisplayLayer extends RenderLayer {
 
 	/** The latency forced, avoiding display freezes for loading. */

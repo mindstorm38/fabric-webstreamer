@@ -3,6 +3,8 @@ package fr.theorozier.webstreamer.display.render;
 import com.mojang.blaze3d.systems.RenderSystem;
 import fr.theorozier.webstreamer.source.Source;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
+import net.fabricmc.api.EnvType;
+import net.fabricmc.api.Environment;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.concurrent.ExecutorService;
@@ -13,6 +15,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 /**
  * This class is responsible for caching and keeping the number of layer to the minimum.
  */
+@Environment(EnvType.CLIENT)
 public class DisplayLayerManager {
 
     /** Max number of concurrent display layers. */
@@ -84,6 +87,14 @@ public class DisplayLayerManager {
             }
             return false;
         });
+    }
+
+    /**
+     * Free and remove all layers.
+     */
+    public void clear() {
+        this.layers.values().forEach(DisplayLayer::displayFree);
+        this.layers.clear();
     }
     
 }

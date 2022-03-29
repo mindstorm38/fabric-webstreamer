@@ -1,16 +1,13 @@
 package fr.theorozier.webstreamer.display.render;
 
-import com.mojang.blaze3d.systems.RenderSystem;
 import fr.theorozier.webstreamer.WebStreamerMod;
+import net.fabricmc.api.EnvType;
+import net.fabricmc.api.Environment;
 import net.minecraft.util.math.Vec3i;
-import org.bytedeco.javacv.Frame;
 import org.lwjgl.openal.AL10;
 import org.lwjgl.openal.AL11;
 
-import java.nio.Buffer;
-import java.nio.ByteBuffer;
-import java.nio.ShortBuffer;
-
+@Environment(EnvType.CLIENT)
 public class DisplaySoundSource {
 	
 	private int sourceId;

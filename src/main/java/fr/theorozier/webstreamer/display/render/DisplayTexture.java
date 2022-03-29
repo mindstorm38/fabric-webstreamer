@@ -2,6 +2,8 @@ package fr.theorozier.webstreamer.display.render;
 
 import com.mojang.blaze3d.platform.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
+import net.fabricmc.api.EnvType;
+import net.fabricmc.api.Environment;
 import net.minecraft.client.texture.AbstractTexture;
 import net.minecraft.resource.ResourceManager;
 import org.bytedeco.javacv.Frame;
@@ -11,6 +13,7 @@ import org.lwjgl.opengl.GL14;
 
 import java.nio.ByteBuffer;
 
+@Environment(EnvType.CLIENT)
 public class DisplayTexture extends AbstractTexture {
 
     private int width = -1, height = -1;
