@@ -2,7 +2,7 @@ package fr.theorozier.webstreamer.display.render;
 
 import fr.theorozier.webstreamer.WebStreamerClientMod;
 import fr.theorozier.webstreamer.display.DisplayBlockEntity;
-import fr.theorozier.webstreamer.source.Source;
+import fr.theorozier.webstreamer.display.DisplaySourceUrl;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.minecraft.client.render.VertexConsumer;
@@ -23,11 +23,10 @@ public class DisplayBlockEntityRenderer implements BlockEntityRenderer<DisplayBl
     @Override
     public void render(DisplayBlockEntity entity, float tickDelta, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light, int overlay) {
 
-        Source source = entity.getSource();
-
-        if (source != null) {
+        DisplaySourceUrl url = entity.getUrl();
+        if (url != null) {
     
-            DisplayLayer layer = WebStreamerClientMod.DISPLAY_LAYERS.forSource(source);
+            DisplayLayer layer = WebStreamerClientMod.DISPLAY_LAYERS.forSource(url);
 
             if (layer != null) {
 

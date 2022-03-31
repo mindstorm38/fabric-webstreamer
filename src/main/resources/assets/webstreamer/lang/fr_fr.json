@@ -1,0 +1,17 @@
+{
+  "gui.webstreamer.display.conf": "Configuration de l'écran",
+  "gui.webstreamer.display.width": "Largeur",
+  "gui.webstreamer.display.height": "Hauteur",
+  "gui.webstreamer.display.sourceType": "Type de source",
+  "gui.webstreamer.display.sourceType.raw": "HLS brut",
+  "gui.webstreamer.display.sourceType.twitch": "Twitch",
+  "gui.webstreamer.display.url": "URL",
+  "gui.webstreamer.display.channel": "Chaîne",
+  "gui.webstreamer.display.malformedUrl": "Erreur: URL malformée",
+  "gui.webstreamer.display.noQuality": "Pas de qualité",
+  "gui.webstreamer.display.quality": "Qualité",
+  "gui.webstreamer.display.error.noToken": "Erreur: pas de jeton",
+  "gui.webstreamer.display.error.channelNotFound": "Erreur: chaîne inconnue",
+  "gui.webstreamer.display.error.channelOffline": "Erreur: chaîne hors ligne",
+  "gui.webstreamer.display.error.unknown": "Erreur inconnue: {0}"
+}

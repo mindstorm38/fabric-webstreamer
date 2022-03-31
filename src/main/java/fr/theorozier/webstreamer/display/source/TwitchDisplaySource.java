@@ -5,29 +5,32 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 
-import java.net.URI;
-import java.net.URL;
-import java.net.URLEncoder;
+import java.io.IOException;
+import java.net.*;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Future;
 
 public class TwitchDisplaySource implements DisplaySource {
 
-    private Playlist playlist;
+    private String channel;
     private URL url;
 
-    public void setPlaylist(Playlist playlist) {
-        this.playlist = playlist;
+    public void setChannelAndUrl(String channel, URL url) {
+        this.channel = channel;
+        this.url = url;
     }
 
-    public Playlist getPlaylist() {
-        return playlist;
+    public void clearChannelAndUrl() {
+        this.channel = null;
+        this.url = null;
+    }
+
+    public String getChannel() {
+        return channel;
     }
 
     @Override
@@ -82,87 +85,98 @@ public class TwitchDisplaySource implements DisplaySource {
     private static final Gson GSON = new GsonBuilder().create();
     private static final String TWITCH_CLIENT_ID = "kimne78kx3ncx6brgo4mv6wki5h1ko";
 
-    public static Future<Playlist> requestPlaylist(ExecutorService exec, String channel) {
-        return exec.submit(() -> {
+    private static Playlist requestPlaylistInternal(String channel) throws PlaylistException, IOException, URISyntaxException, InterruptedException {
 
-            URI gqlUri = new URL("https://gql.twitch.tv/gql").toURI();
+        if (channel.isEmpty()) {
+            throw new PlaylistException(PlaylistExceptionType.CHANNEL_NOT_FOUND);
+        }
 
-            HttpClient client = HttpClient.newHttpClient();
+        URI gqlUri = new URL("https://gql.twitch.tv/gql").toURI();
 
-            JsonObject body = new JsonObject();
-            body.addProperty("operationName", "PlaybackAccessToken");
-            JsonObject extensions = new JsonObject();
-            JsonObject persistedQuery = new JsonObject();
-            persistedQuery.addProperty("version", 1);
-            persistedQuery.addProperty("sha256Hash", "0828119ded1c13477966434e15800ff57ddacf13ba1911c129dc2200705b0712");
-            extensions.add("persistedQuery", persistedQuery);
-            body.add("extensions", extensions);
-            JsonObject variables = new JsonObject();
-            variables.addProperty("isLive", true);
-            variables.addProperty("login", channel);
-            variables.addProperty("isVod", false);
-            variables.addProperty("vodID", "");
-            variables.addProperty("playerType", "embed");
-            body.add("variables", variables);
+        HttpClient client = HttpClient.newHttpClient();
 
-            HttpRequest tokenReq = HttpRequest.newBuilder(gqlUri)
-                    .POST(HttpRequest.BodyPublishers.ofString(GSON.toJson(body)))
-                    .header("Accept", "application/json")
-                    .headers("Client-id", TWITCH_CLIENT_ID)
-                    .build();
+        JsonObject body = new JsonObject();
+        body.addProperty("operationName", "PlaybackAccessToken");
+        JsonObject extensions = new JsonObject();
+        JsonObject persistedQuery = new JsonObject();
+        persistedQuery.addProperty("version", 1);
+        persistedQuery.addProperty("sha256Hash", "0828119ded1c13477966434e15800ff57ddacf13ba1911c129dc2200705b0712");
+        extensions.add("persistedQuery", persistedQuery);
+        body.add("extensions", extensions);
+        JsonObject variables = new JsonObject();
+        variables.addProperty("isLive", true);
+        variables.addProperty("login", channel);
+        variables.addProperty("isVod", false);
+        variables.addProperty("vodID", "");
+        variables.addProperty("playerType", "embed");
+        body.add("variables", variables);
 
-            HttpResponse<String> tokenRes = client.send(tokenReq, HttpResponse.BodyHandlers.ofString());
+        HttpRequest tokenReq = HttpRequest.newBuilder(gqlUri)
+                .POST(HttpRequest.BodyPublishers.ofString(GSON.toJson(body)))
+                .header("Accept", "application/json")
+                .headers("Client-id", TWITCH_CLIENT_ID)
+                .build();
 
-            if (tokenRes.statusCode() != 200) {
-                throw new PlaylistException(PlaylistExceptionType.NO_TOKEN);
-            }
+        HttpResponse<String> tokenRes = client.send(tokenReq, HttpResponse.BodyHandlers.ofString());
 
-            JsonObject tokenResJson = GSON.fromJson(tokenRes.body(), JsonObject.class);
-            JsonElement tokenRaw = tokenResJson.getAsJsonObject("data").get("streamPlaybackAccessToken");
-            if (!tokenRaw.isJsonObject()) {
+        if (tokenRes.statusCode() != 200) {
+            throw new PlaylistException(PlaylistExceptionType.NO_TOKEN);
+        }
+
+        JsonObject tokenResJson = GSON.fromJson(tokenRes.body(), JsonObject.class);
+        JsonElement tokenRaw = tokenResJson.getAsJsonObject("data").get("streamPlaybackAccessToken");
+        if (!tokenRaw.isJsonObject()) {
+            throw new PlaylistException(PlaylistExceptionType.CHANNEL_NOT_FOUND);
+        }
+
+        JsonObject token = tokenRaw.getAsJsonObject();
+
+        String tokenValue = URLEncoder.encode(token.get("value").getAsString(), StandardCharsets.UTF_8);
+        String tokenSignature = token.get("signature").getAsString();
+        URI urlsUri = new URL("https://usher.ttvnw.net/api/channel/hls/" + channel + ".m3u8?client_id=" + TWITCH_CLIENT_ID + "&token=" + tokenValue + "&sig=" + tokenSignature + "&allow_source=true&allow_audio_only=false").toURI();
+
+        HttpRequest urlsReq = HttpRequest.newBuilder(urlsUri)
+                .GET()
+                .header("Accept", "application/json")
+                .build();
+
+        HttpResponse<String> urlsRes = client.send(urlsReq, HttpResponse.BodyHandlers.ofString());
+
+        if (urlsRes.statusCode() == 404) {
+            if (urlsRes.body().contains("Can not find channel")) {
                 throw new PlaylistException(PlaylistExceptionType.CHANNEL_NOT_FOUND);
+            } else {
+                throw new PlaylistException(PlaylistExceptionType.CHANNEL_OFFLINE);
             }
+        } else if (urlsRes.statusCode() != 200) {
+            throw new PlaylistException(PlaylistExceptionType.UNKNOWN);
+        }
 
-            JsonObject token = tokenRaw.getAsJsonObject();
+        String raw = urlsRes.body();
+        List<String> rawLines = raw.lines().toList();
 
-            String tokenValue = URLEncoder.encode(token.get("value").getAsString(), StandardCharsets.UTF_8);
-            String tokenSignature = token.get("signature").getAsString();
-            URI urlsUri = new URL("https://usher.ttvnw.net/api/channel/hls/" + channel + ".m3u8?client_id=" + TWITCH_CLIENT_ID + "&token=" + tokenValue + "&sig=" + tokenSignature + "&allow_source=true&allow_audio_only=false").toURI();
+        Playlist playlist = new Playlist(channel);
 
-            HttpRequest urlsReq = HttpRequest.newBuilder(urlsUri)
-                    .GET()
-                    .header("Accept", "application/json")
-                    .build();
+        for (int i = 4; i < rawLines.size(); i += 3) {
+            String line0 = rawLines.get(i);
+            String line2 = rawLines.get(i - 2);
+            int qualityNameStartIdx = line2.indexOf("NAME=\"");
+            int qualityNameStopIdx = line2.indexOf('"', qualityNameStartIdx + 6);
+            String qualityName = line2.substring(qualityNameStartIdx + 6, qualityNameStopIdx);
+            playlist.qualities.add(new PlaylistQuality(qualityName, new URL(line0)));
+        }
 
-            HttpResponse<String> urlsRes = client.send(urlsReq, HttpResponse.BodyHandlers.ofString());
+        return playlist;
 
-            if (urlsRes.statusCode() == 404) {
-                if (urlsRes.body().contains("Can not find channel")) {
-                    throw new PlaylistException(PlaylistExceptionType.CHANNEL_NOT_FOUND);
-                } else {
-                    throw new PlaylistException(PlaylistExceptionType.CHANNEL_OFFLINE);
-                }
-            } else if (urlsRes.statusCode() != 200) {
-                throw new PlaylistException(PlaylistExceptionType.UNKNOWN);
-            }
+    }
 
-            String raw = urlsRes.body();
-            List<String> rawLines = raw.lines().toList();
-
-            Playlist playlist = new Playlist(channel);
-
-            for (int i = 4; i < rawLines.size(); i += 3) {
-                String line0 = rawLines.get(i);
-                String line2 = rawLines.get(i - 2);
-                int qualityNameStartIdx = line2.indexOf("NAME=\"");
-                int qualityNameStopIdx = line2.indexOf('"', qualityNameStartIdx + 6);
-                String qualityName = line2.substring(qualityNameStartIdx + 6, qualityNameStopIdx);
-                playlist.qualities.add(new PlaylistQuality(qualityName, new URL(line0)));
-            }
-
-            return playlist;
-
-        });
+    public static Playlist requestPlaylist(String channel) throws PlaylistException {
+        try {
+            return requestPlaylistInternal(channel);
+        } catch (IOException | URISyntaxException | InterruptedException e) {
+            e.printStackTrace();
+            throw new PlaylistException(PlaylistExceptionType.UNKNOWN);
+        }
     }
 
 }

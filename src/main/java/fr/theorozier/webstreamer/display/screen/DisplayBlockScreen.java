@@ -4,6 +4,9 @@ import fr.theorozier.webstreamer.display.DisplayBlockEntity;
 import fr.theorozier.webstreamer.display.source.DisplaySource;
 import fr.theorozier.webstreamer.display.source.RawDisplaySource;
 import fr.theorozier.webstreamer.display.source.TwitchDisplaySource;
+import fr.theorozier.webstreamer.util.AsyncProcess;
+import net.fabricmc.api.EnvType;
+import net.fabricmc.api.Environment;
 import net.minecraft.client.gui.Drawable;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.screen.ScreenTexts;
@@ -17,43 +20,58 @@ import net.minecraft.text.LiteralText;
 import net.minecraft.text.Text;
 import net.minecraft.text.TranslatableText;
 
+import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.*;
+import java.util.function.Consumer;
 
+@Environment(EnvType.CLIENT)
 public class DisplayBlockScreen extends Screen {
 
-    private static final Text DISPLAY_TEXT = new TranslatableText("webstreamer.display.display");
-    private static final Text SOURCE_TYPE_TEXT = new TranslatableText("webstreamer.display.sourceType");
-    private static final Text SOURCE_TYPE_RAW_TEXT = new TranslatableText("webstreamer.display.sourceType.raw");
-    private static final Text SOURCE_TYPE_TWITCH_TEXT = new TranslatableText("webstreamer.display.sourceType.twitch");
-    private static final Text URL_TEXT = new TranslatableText("webstreamer.display.url");
-    private static final Text CHANNEL_TEXT = new TranslatableText("webstreamer.display.channel");
-    private static final Text MALFORMED_URL_TEXT = new TranslatableText("webstreamer.display.malformedUrl");
-    private static final Text NO_QUALITY_TEXT = new TranslatableText("webstreamer.display.noQuality");
-    private static final Text QUALITY_TEXT = new TranslatableText("webstreamer.display.quality");
+    private static final Text CONF_TEXT = new TranslatableText("gui.webstreamer.display.conf");
+    private static final Text WIDTH_TEXT = new TranslatableText("gui.webstreamer.display.width");
+    private static final Text HEIGHT_TEXT = new TranslatableText("gui.webstreamer.display.height");
+    private static final Text SOURCE_TYPE_TEXT = new TranslatableText("gui.webstreamer.display.sourceType");
+    private static final Text SOURCE_TYPE_RAW_TEXT = new TranslatableText("gui.webstreamer.display.sourceType.raw");
+    private static final Text SOURCE_TYPE_TWITCH_TEXT = new TranslatableText("gui.webstreamer.display.sourceType.twitch");
+    private static final Text URL_TEXT = new TranslatableText("gui.webstreamer.display.url");
+    private static final Text CHANNEL_TEXT = new TranslatableText("gui.webstreamer.display.channel");
+    private static final Text MALFORMED_URL_TEXT = new TranslatableText("gui.webstreamer.display.malformedUrl");
+    private static final Text NO_QUALITY_TEXT = new TranslatableText("gui.webstreamer.display.noQuality");
+    private static final Text QUALITY_TEXT = new TranslatableText("gui.webstreamer.display.quality");
 
-    private static final Text ERR_NO_TOKEN_TEXT = new TranslatableText("webstreamer.display.error.noToken");
-    private static final Text ERR_CHANNEL_NOT_FOUND_TEXT = new TranslatableText("webstreamer.display.error.channelNotFound");
-    private static final Text ERR_CHANNEL_OFFLINE_TEXT = new TranslatableText("webstreamer.display.error.channelOffline");
-    private static final String ERR_UNKNOWN_TEXT_KEY = "webstreamer.display.error.unknown";
+    private static final Text ERR_NO_TOKEN_TEXT = new TranslatableText("gui.webstreamer.display.error.noToken");
+    private static final Text ERR_CHANNEL_NOT_FOUND_TEXT = new TranslatableText("gui.webstreamer.display.error.channelNotFound");
+    private static final Text ERR_CHANNEL_OFFLINE_TEXT = new TranslatableText("gui.webstreamer.display.error.channelOffline");
+    private static final String ERR_UNKNOWN_TEXT_KEY = "gui.webstreamer.display.error.unknown";
 
     private final DisplayBlockEntity blockEntity;
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
 
-    private SourceScreen sourceScreen;
+    private SourceScreen<?> sourceScreen;
     private SourceType sourceType;
 
+    private int xHalf;
+    private int yTop;
+    private int ySourceTop;
+
+    private TextFieldWidget displayWidthField;
+    private TextFieldWidget displayHeightField;
     private CyclingButtonWidget<SourceType> sourceTypeButton;
     private ButtonWidget doneButton;
     private ButtonWidget cancelButton;
+
+    private float displayWidth;
+    private float displayHeight;
 
     public DisplayBlockScreen(DisplayBlockEntity blockEntity) {
 
         super(NarratorManager.EMPTY);
         this.blockEntity = blockEntity;
 
-        DisplaySource source = blockEntity.getDisplaySource();
+        DisplaySource source = blockEntity.getSource();
         if (source instanceof RawDisplaySource rawSource) {
             this.sourceType = SourceType.RAW;
             this.sourceScreen = new RawSourceScreen(rawSource);
@@ -65,9 +83,12 @@ public class DisplayBlockScreen extends Screen {
             this.sourceScreen = new RawSourceScreen();
         }
 
+        this.displayWidth = blockEntity.getWidth();
+        this.displayHeight = blockEntity.getHeight();
+
     }
 
-    private void setSourceScreen(SourceScreen sourceScreen) {
+    private void setSourceScreen(SourceScreen<?> sourceScreen) {
         this.sourceScreen = sourceScreen;
         if (this.client != null) {
             this.init(this.client, this.width, this.height);
@@ -77,28 +98,62 @@ public class DisplayBlockScreen extends Screen {
     @Override
     protected void init() {
 
-        this.sourceTypeButton = CyclingButtonWidget.<SourceType>builder(type -> switch (type) {
-            case TWITCH -> SOURCE_TYPE_TWITCH_TEXT;
-            default -> SOURCE_TYPE_RAW_TEXT;
-        }).values(SourceType.values()).build(this.width / 2 - 4 - 150, this.height / 4 + 120 - 16, 308, 20, SOURCE_TYPE_TEXT, this::onSourceTypeChanged);
+        this.xHalf = this.width / 2;
+        this.yTop = 60;
+        this.ySourceTop = 100;
+
+        String displayWidthRaw = this.displayWidthField == null ? Float.toString(this.displayWidth) : this.displayWidthField.getText();
+        String displayHeightRaw = this.displayHeightField == null ? Float.toString(this.displayHeight) : this.displayHeightField.getText();
+
+        this.displayWidthField = new TextFieldWidget(this.textRenderer, xHalf - 154, yTop + 11, 50, 18, LiteralText.EMPTY);
+        this.displayWidthField.setText(displayWidthRaw);
+        this.displayWidthField.setChangedListener(this::onDisplayWidthChanged);
+        this.addDrawableChild(this.displayWidthField);
+        this.addSelectableChild(this.displayWidthField);
+
+        this.displayHeightField = new TextFieldWidget(this.textRenderer, xHalf - 96, yTop + 11, 50, 18, LiteralText.EMPTY);
+        this.displayHeightField.setText(displayHeightRaw);
+        this.displayHeightField.setChangedListener(this::onDisplayHeightChanged);
+        this.addDrawableChild(this.displayHeightField);
+        this.addSelectableChild(this.displayHeightField);
+
+        this.sourceTypeButton = CyclingButtonWidget.builder(SourceType::getText)
+                .values(SourceType.values())
+                .build(xHalf - 38, yTop + 10, 192, 20, SOURCE_TYPE_TEXT, this::onSourceTypeChanged);
+
         this.sourceTypeButton.setValue(this.sourceType);
+        this.addDrawableChild(this.sourceTypeButton);
 
-        this.doneButton = new ButtonWidget(this.width / 2 - 4 - 150, this.height / 4 + 120 + 12, 150, 20, ScreenTexts.DONE, button -> {
-            // this.commitAndClose();
+        this.doneButton = new ButtonWidget(xHalf - 4 - 150, height / 4 + 120 + 12, 150, 20, ScreenTexts.DONE, button -> {
+            this.commitAndClose();
         });
+        this.addDrawableChild(this.doneButton);
 
-        this.cancelButton = new ButtonWidget(this.width / 2 + 4, this.height / 4 + 120 + 12, 150, 20, ScreenTexts.CANCEL, button -> {
+        this.cancelButton = new ButtonWidget(xHalf + 4, height / 4 + 120 + 12, 150, 20, ScreenTexts.CANCEL, button -> {
             this.close();
         });
-
-        this.addDrawableChild(this.sourceTypeButton);
-        this.addDrawableChild(this.doneButton);
         this.addDrawableChild(this.cancelButton);
 
         if (this.sourceScreen != null) {
             this.sourceScreen.init();
         }
 
+    }
+
+    private void onDisplayWidthChanged(String widthRaw) {
+        try {
+            this.displayWidth = Float.parseFloat(widthRaw);
+        } catch (NumberFormatException e) {
+            this.displayWidth = Float.NaN;
+        }
+    }
+
+    private void onDisplayHeightChanged(String heightRaw) {
+        try {
+            this.displayHeight = Float.parseFloat(heightRaw);
+        } catch (NumberFormatException e) {
+            this.displayHeight = Float.NaN;
+        }
     }
 
     private void onSourceTypeChanged(CyclingButtonWidget<SourceType> button, SourceType type) {
@@ -111,10 +166,22 @@ public class DisplayBlockScreen extends Screen {
         }
     }
 
+    private void commitAndClose() {
+        if (Float.isFinite(this.displayWidth) && Float.isFinite(this.displayHeight)) {
+            this.blockEntity.setSize(this.displayWidth, this.displayHeight);
+            if (this.sourceScreen != null) {
+                this.blockEntity.setSource(this.sourceScreen.source);
+            }
+        }
+        this.close();
+    }
+
     @Override
     public void render(MatrixStack matrices, int mouseX, int mouseY, float delta) {
         this.renderBackground(matrices);
-        drawCenteredText(matrices, this.textRenderer, DISPLAY_TEXT, this.width / 2, 20, 0xFFFFFF);
+        drawCenteredText(matrices, this.textRenderer, CONF_TEXT, xHalf, 20, 0xFFFFFF);
+        drawTextWithShadow(matrices, this.textRenderer, WIDTH_TEXT, xHalf - 154, yTop + 1, 0xA0A0A0);
+        drawTextWithShadow(matrices, this.textRenderer, HEIGHT_TEXT, xHalf - 96, yTop + 1, 0xA0A0A0);
         if (this.sourceScreen != null) {
             this.sourceScreen.render(matrices, mouseX, mouseY, delta);
         }
@@ -124,39 +191,61 @@ public class DisplayBlockScreen extends Screen {
     @Override
     public void tick() {
         super.tick();
+        this.displayWidthField.tick();
+        this.displayHeightField.tick();
+        this.doneButton.active = Float.isFinite(this.displayWidth) && Float.isFinite(this.displayHeight);
         if (this.sourceScreen != null) {
             this.sourceScreen.tick();
-            this.doneButton.active = this.sourceScreen.valid();
+            if (this.doneButton.active && !this.sourceScreen.valid()) {
+                this.doneButton.active = false;
+            }
         }
     }
 
     private enum SourceType {
-        RAW,
-        TWITCH
+
+        RAW(SOURCE_TYPE_RAW_TEXT),
+        TWITCH(SOURCE_TYPE_TWITCH_TEXT);
+
+        private final Text text;
+        SourceType(Text text) {
+            this.text = text;
+        }
+
+        public Text getText() {
+            return text;
+        }
+
     }
 
     /**
      * A basic source screen.
      */
-    private interface SourceScreen extends Drawable {
-        DisplaySource source();
-        boolean valid();
-        void init();
-        void tick();
+    private abstract static class SourceScreen<S extends DisplaySource> implements Drawable {
+
+        protected final S source;
+
+        SourceScreen(S source) {
+            this.source = source;
+        }
+
+        abstract boolean valid();
+        abstract void init();
+        abstract void tick();
+
     }
 
     /**
      * Screen for raw sources.
      */
-    private class RawSourceScreen implements SourceScreen {
+    private class RawSourceScreen extends SourceScreen<RawDisplaySource> {
 
-        private final RawDisplaySource source;
+        private TextFieldWidget urlField;
 
-        private Future<URL> urlFuture;
-        private String urlRaw;
+        private final AsyncProcess<String, URL, MalformedURLException> asyncUrl = new AsyncProcess<>(URL::new);
 
         RawSourceScreen(RawDisplaySource source) {
-            this.source = source;
+            super(source);
         }
 
         RawSourceScreen() {
@@ -164,73 +253,59 @@ public class DisplayBlockScreen extends Screen {
         }
 
         @Override
-        public DisplaySource source() {
-            return this.source;
-        }
-
-        @Override
         public boolean valid() {
-            return this.urlFuture == null;
+            return !this.asyncUrl.active();
         }
 
         @Override
         public void init() {
-            TextFieldWidget urlTextField = new TextFieldWidget(textRenderer, width / 2 - 150, 50, 300, 20, URL_TEXT);
-            urlTextField.setMaxLength(32000);
-            urlTextField.setChangedListener(this::onUrlChanged);
-            addSelectableChild(urlTextField);
-            setInitialFocus(urlTextField);
-            addDrawableChild(urlTextField);
+
+            boolean first = (this.urlField == null);
+
+            this.urlField = new TextFieldWidget(textRenderer, xHalf - 154, ySourceTop + 10, 308, 20, this.urlField, LiteralText.EMPTY);
+            this.urlField.setMaxLength(32000);
+            this.urlField.setChangedListener(this::onUrlChanged);
+            addSelectableChild(this.urlField);
+            setInitialFocus(this.urlField);
+            addDrawableChild(this.urlField);
+
+            if (first) {
+                this.urlField.setText(Objects.toString(this.source.getUrl(), ""));
+            }
+
         }
 
         @Override
         public void render(MatrixStack matrices, int mouseX, int mouseY, float delta) {
-            drawTextWithShadow(matrices, textRenderer, URL_TEXT, width / 2 - 150, 40, 0xA0A0A0);
+            drawTextWithShadow(matrices, textRenderer, URL_TEXT, xHalf - 150, ySourceTop, 0xA0A0A0);
             if (this.source.getUrl() == null) {
-                drawCenteredText(matrices, textRenderer, MALFORMED_URL_TEXT, width / 2, 80, 0xFF6052);
+                drawCenteredText(matrices, textRenderer, MALFORMED_URL_TEXT, xHalf, ySourceTop + 40, 0xFF6052);
             }
         }
 
         @Override
         public void tick() {
-
-            if (this.urlFuture != null && this.urlFuture.isDone()) {
-                try {
-                    this.source.setUrl(this.urlFuture.get());
-                } catch (InterruptedException ignored) {
-                    // Ignore to try again
-                } catch (ExecutionException | CancellationException e) {
-                    this.source.setUrl(null);
-                }
-                this.urlFuture = null;
-            }
-
-            if (this.urlRaw != null && this.urlFuture == null) {
-                String urlRaw = this.urlRaw;
-                this.urlRaw = null;
-                this.urlFuture = executor.submit(() -> new URL(urlRaw));
-            }
-
+            this.urlField.tick();
+            this.asyncUrl.fetch(executor, this.source::setUrl, exc -> this.source.setUrl(null));
         }
 
         private void onUrlChanged(String rawUrl) {
-            this.urlRaw = rawUrl;
+            this.asyncUrl.push(rawUrl);
         }
 
     }
 
-    private class TwitchSourceScreen implements SourceScreen {
+    private class TwitchSourceScreen extends SourceScreen<TwitchDisplaySource> {
 
-        private final TwitchDisplaySource source;
-
+        private TextFieldWidget channelField;
         private QualitySliderWidget qualitySlider;
 
-        private Future<TwitchDisplaySource.Playlist> playlistFuture;
-        private String playlistChannel;
+        private final AsyncProcess<String, TwitchDisplaySource.Playlist, TwitchDisplaySource.PlaylistException> asyncPlaylist = new AsyncProcess<>(TwitchDisplaySource::requestPlaylist);
+        private TwitchDisplaySource.Playlist playlist;
         private Text playlistError;
 
         TwitchSourceScreen(TwitchDisplaySource source) {
-            this.source = source;
+            super(source);
         }
 
         TwitchSourceScreen() {
@@ -238,88 +313,91 @@ public class DisplayBlockScreen extends Screen {
         }
 
         @Override
-        public DisplaySource source() {
-            return this.source;
-        }
-
-        @Override
         public boolean valid() {
-            return this.playlistFuture == null;
+            return !this.asyncPlaylist.active();
         }
 
         @Override
         public void init() {
 
-            TextFieldWidget channelTextField = new TextFieldWidget(textRenderer, width / 2 - 150, 50, 300, 20, CHANNEL_TEXT);
-            channelTextField.setMaxLength(32000);
-            channelTextField.setChangedListener(this::onChannelChanged);
-            addSelectableChild(channelTextField);
-            setInitialFocus(channelTextField);
-            addDrawableChild(channelTextField);
+            boolean first = (this.channelField == null);
 
-            this.qualitySlider = new QualitySliderWidget(width / 2 - 150, 110, 300, 20);
+            this.channelField = new TextFieldWidget(textRenderer, xHalf - 154, ySourceTop + 10, 308, 20, this.channelField, LiteralText.EMPTY);
+            this.channelField.setMaxLength(64);
+            this.channelField.setChangedListener(this::onChannelChanged);
+            addSelectableChild(this.channelField);
+            setInitialFocus(this.channelField);
+            addDrawableChild(this.channelField);
+
+            this.qualitySlider = new QualitySliderWidget(xHalf - 154, ySourceTop + 50, 308, 20);
+            this.qualitySlider.setChangedListener(this::onQualityChanged);
+            this.qualitySlider.visible = false;
             addSelectableChild(this.qualitySlider);
             addDrawableChild(this.qualitySlider);
+
+            if (first) {
+                this.channelField.setText(Objects.toString(this.source.getChannel(), ""));
+            }
 
         }
 
         @Override
         public void render(MatrixStack matrices, int mouseX, int mouseY, float delta) {
-            drawTextWithShadow(matrices, textRenderer, CHANNEL_TEXT, width / 2 - 150, 40, 0xA0A0A0);
-            drawTextWithShadow(matrices, textRenderer, QUALITY_TEXT, width / 2 - 150, 100, 0xA0A0A0);
-            if (this.playlistError != null) {
-                drawCenteredText(matrices, textRenderer, this.playlistError, width / 2, 80, 0xFF6052);
+            drawTextWithShadow(matrices, textRenderer, CHANNEL_TEXT, xHalf - 154, ySourceTop, 0xA0A0A0);
+            if (this.playlistError == null) {
+                drawTextWithShadow(matrices, textRenderer, QUALITY_TEXT, xHalf - 154, ySourceTop + 40, 0xA0A0A0);
+            } else {
+                drawCenteredText(matrices, textRenderer, this.playlistError, xHalf, ySourceTop + 50, 0xFF6052);
             }
         }
 
         @Override
         public void tick() {
 
-            if (this.playlistFuture != null && this.playlistFuture.isDone()) {
-                this.playlistError = null;
-                try {
-                    this.source.setPlaylist(this.playlistFuture.get());
-                    this.qualitySlider.setQualities(this.source.getPlaylist().getQualities());
-                } catch (InterruptedException ignored) {
-                    // Ignore to try again
-                } catch (ExecutionException | CancellationException e) {
-                    this.source.setPlaylist(null);
-                    this.qualitySlider.setQualities(null);
-                    Throwable cause = e.getCause();
-                    if (cause != null) {
-                        cause.printStackTrace();
-                        if (cause instanceof TwitchDisplaySource.PlaylistException ple) {
-                            this.playlistError = switch (ple.getExceptionType()) {
-                                case UNKNOWN -> new TranslatableText(ERR_UNKNOWN_TEXT_KEY, "");
-                                case NO_TOKEN -> ERR_NO_TOKEN_TEXT;
-                                case CHANNEL_NOT_FOUND -> ERR_CHANNEL_NOT_FOUND_TEXT;
-                                case CHANNEL_OFFLINE -> ERR_CHANNEL_OFFLINE_TEXT;
-                            };
-                        } else {
-                            this.playlistError = new TranslatableText(ERR_UNKNOWN_TEXT_KEY, cause.getMessage());
-                        }
-                    }
-                }
-                this.playlistFuture = null;
-            }
+            this.channelField.tick();
 
-            if (this.playlistFuture == null && this.playlistChannel != null) {
-                this.playlistFuture = TwitchDisplaySource.requestPlaylist(executor, this.playlistChannel);
-                this.playlistChannel = null;
-            }
+            this.asyncPlaylist.fetch(executor, pl -> {
+                this.playlist = pl;
+                this.qualitySlider.setQualities(pl.getQualities());
+                this.playlistError = null;
+                this.updateQualitySlider();
+            }, exc -> {
+                this.playlist = null;
+                this.qualitySlider.setQualities(null);
+                this.playlistError = switch (exc.getExceptionType()) {
+                    case UNKNOWN -> new TranslatableText(ERR_UNKNOWN_TEXT_KEY, "");
+                    case NO_TOKEN -> ERR_NO_TOKEN_TEXT;
+                    case CHANNEL_NOT_FOUND -> ERR_CHANNEL_NOT_FOUND_TEXT;
+                    case CHANNEL_OFFLINE -> ERR_CHANNEL_OFFLINE_TEXT;
+                };
+                this.updateQualitySlider();
+            });
 
         }
 
         private void onChannelChanged(String channel) {
-            this.playlistChannel = channel;
+            this.asyncPlaylist.push(channel);
+        }
+
+        private void onQualityChanged(TwitchDisplaySource.PlaylistQuality quality) {
+            if (quality == null) {
+                this.source.clearChannelAndUrl();
+            } else if (this.playlist != null) {
+                this.source.setChannelAndUrl(this.playlist.getChannel(), quality.url());
+            }
+        }
+
+        private void updateQualitySlider() {
+            this.qualitySlider.visible = (this.playlistError == null);
         }
 
     }
 
     private static class QualitySliderWidget extends SliderWidget {
 
-        private List<TwitchDisplaySource.PlaylistQuality> qualities;
         private int qualityIndex = -1;
+        private List<TwitchDisplaySource.PlaylistQuality> qualities;
+        private Consumer<TwitchDisplaySource.PlaylistQuality> changedListener;
 
         public QualitySliderWidget(int x, int y, int width, int height) {
             super(x, y, width, height, LiteralText.EMPTY, 0.0);
@@ -330,6 +408,10 @@ public class DisplayBlockScreen extends Screen {
             this.qualities = qualities;
             this.applyValue();
             this.updateMessage();
+        }
+
+        public void setChangedListener(Consumer<TwitchDisplaySource.PlaylistQuality> changedListener) {
+            this.changedListener = changedListener;
         }
 
         @Override
@@ -347,10 +429,16 @@ public class DisplayBlockScreen extends Screen {
                 this.value = 0.0;
                 this.qualityIndex = -1;
                 this.active = false;
+                if (this.changedListener != null) {
+                    this.changedListener.accept(null);
+                }
             } else {
                 this.qualityIndex = (int) Math.round(this.value * (this.qualities.size() - 1));
                 this.value = (double) this.qualityIndex  / (double) (this.qualities.size() - 1);
                 this.active = true;
+                if (this.changedListener != null) {
+                    this.changedListener.accept(this.qualities.get(this.qualityIndex));
+                }
             }
         }
 

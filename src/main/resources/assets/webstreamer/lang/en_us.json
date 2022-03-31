@@ -1,0 +1,17 @@
+{
+  "gui.webstreamer.display.conf": "Display configuration",
+  "gui.webstreamer.display.width": "Width",
+  "gui.webstreamer.display.height": "Height",
+  "gui.webstreamer.display.sourceType": "Source type",
+  "gui.webstreamer.display.sourceType.raw": "Raw HLS",
+  "gui.webstreamer.display.sourceType.twitch": "Twitch",
+  "gui.webstreamer.display.url": "URL",
+  "gui.webstreamer.display.channel": "Channel",
+  "gui.webstreamer.display.malformedUrl": "Error: malformed URL",
+  "gui.webstreamer.display.noQuality": "No quality",
+  "gui.webstreamer.display.quality": "Quality",
+  "gui.webstreamer.display.error.noToken": "Error: no token",
+  "gui.webstreamer.display.error.channelNotFound": "Error: channel not found",
+  "gui.webstreamer.display.error.channelOffline": "Error: channel offline",
+  "gui.webstreamer.display.error.unknown": "Unknown error: {0}"
+}

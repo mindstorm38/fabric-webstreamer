@@ -1,7 +1,7 @@
 package fr.theorozier.webstreamer.display.render;
 
 import com.mojang.blaze3d.systems.RenderSystem;
-import fr.theorozier.webstreamer.source.Source;
+import fr.theorozier.webstreamer.display.DisplaySourceUrl;
 import io.lindstrom.m3u8.model.MediaPlaylist;
 import io.lindstrom.m3u8.model.MediaSegment;
 import io.lindstrom.m3u8.parser.MediaPlaylistParser;
@@ -45,7 +45,7 @@ public class DisplayLayer extends RenderLayer {
 
 		private final ExecutorService executor;
 		
-        private final Source source;
+        private final DisplaySourceUrl url;
         private final DisplayTexture tex;
     
         private final MediaPlaylistParser hlsParser;
@@ -115,24 +115,24 @@ public class DisplayLayer extends RenderLayer {
 		/** Time in nanoseconds (monotonic) of the last internal cleanup. */
 		private long lastCleanup = 0;
 
-        Inner(ExecutorService executor, Source source) {
+        Inner(ExecutorService executor, DisplaySourceUrl url) {
 
 			this.executor = executor;
 			
-            this.source = source;
+            this.url = url;
             this.tex = new DisplayTexture();
             
             this.hlsParser = new MediaPlaylistParser(ParsingMode.LENIENT);
 			
 			this.soundSource = new DisplaySoundSource();
 
-			System.out.println("Allocate DisplayLayer for " + source.getUrl());
+			System.out.println("Allocate DisplayLayer for " + this.url);
     
         }
 
 		private void free() {
 
-			System.out.println("Free DisplayLayer for " + this.source.getUrl());
+			System.out.println("Free DisplayLayer for " + this.url);
 
 			this.tex.clearGlId();
 			this.soundSource.free();
@@ -170,7 +170,7 @@ public class DisplayLayer extends RenderLayer {
      
 		/** Internal blocking method to request the playlist. */
         private MediaPlaylist requestPlaylistBlocking() throws IOException {
-            return this.hlsParser.readPlaylist(this.source.getUrl().openStream());
+            return this.hlsParser.readPlaylist(this.url.url().openStream());
         }
 		
 		/** Request the playlist if not already requesting and if this request is not pointless. */
@@ -226,7 +226,7 @@ public class DisplayLayer extends RenderLayer {
 				this.futureGrabbers.computeIfAbsent(index, index0 -> {
 					// System.out.println("=> Request grabber for segment " + index0 + "/" + this.getLastSegmentIndex());
 					return new FutureGrabber(this.executor.submit(() -> {
-						URL segmentUrl = this.source.getContextUrl(seg.uri());
+						URL segmentUrl = this.url.getContextUrl(seg.uri());
 						FrameGrabber grabber = new FrameGrabber(segmentUrl.openStream());
 						grabber.start();
 						return grabber;
@@ -442,9 +442,9 @@ public class DisplayLayer extends RenderLayer {
 	
 	private final Inner inner;
 
-    public DisplayLayer(ExecutorService executor, Source source) {
+    public DisplayLayer(ExecutorService executor, DisplaySourceUrl url) {
 		// We are using an inner class just for the "super" call to be first.
-        this(new Inner(executor, source));
+        this(new Inner(executor, url));
     }
 
     private DisplayLayer(Inner inner) {

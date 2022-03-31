@@ -1,7 +1,7 @@
 package fr.theorozier.webstreamer.display.render;
 
 import com.mojang.blaze3d.systems.RenderSystem;
-import fr.theorozier.webstreamer.source.Source;
+import fr.theorozier.webstreamer.display.DisplaySourceUrl;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
@@ -39,20 +39,14 @@ public class DisplayLayerManager {
     /** Time in nanoseconds (monotonic) of the last cleanup for unused layers. */
     private long lastCleanup = 0;
 
-    /**
-     * Get the display layer for the given source. If too many layers are currently running,
-     * null is returned.
-     * @param source The source.
-     * @return The display layer, null if more layer is possible.
-     */
-    public DisplayLayer forSource(Source source) {
-        DisplayLayer layer = this.layers.get(source.getId());
+    public DisplayLayer forSource(DisplaySourceUrl url) {
+        DisplayLayer layer = this.layers.get(url.id());
         if (layer == null) {
             if (this.layers.size() >= MAX_LAYERS_COUNT) {
                 return null;
             }
-            layer = new DisplayLayer(this.executor, source);
-            this.layers.put(source.getId(), layer);
+            layer = new DisplayLayer(this.executor, url);
+            this.layers.put(url.id(), layer);
         }
         return layer;
     }
