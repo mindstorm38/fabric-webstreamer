@@ -10,18 +10,22 @@ import org.lwjgl.openal.AL11;
 @Environment(EnvType.CLIENT)
 public class DisplaySoundSource {
 	
-	private int sourceId;
+	private final int sourceId;
 	
 	public DisplaySoundSource() {
 		this.sourceId = AL10.alGenSources();
 		AL10.alSourcei(this.sourceId, AL10.AL_LOOPING, AL10.AL_FALSE);
 		AL10.alSourcei(this.sourceId, AL10.AL_SOURCE_RELATIVE, AL10.AL_FALSE);
-		this.setAttenuation(20);
 		this.setVolume(1.0f);
+		this.setAttenuation(0.1f);
+	}
+
+	public void stop() {
+		AL10.alSourceStop(this.sourceId);
 	}
 
 	public void free() {
-		AL10.alSourceStop(this.sourceId);
+		this.stop();
 		this.unqueueAndDelete();
 		AL10.alDeleteSources(this.sourceId);
 	}

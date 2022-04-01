@@ -58,7 +58,10 @@ public class DisplayLayerManager {
     public void tick() {
 
         RenderSystem.assertOnRenderThread();
-        this.layers.values().forEach(DisplayLayer::displayTick);
+        this.layers.values().forEach(layer -> {
+            layer.displayTick();
+            layer.resetSoundSource();
+        });
 
         long now = System.nanoTime();
         if (now - this.lastCleanup >= CLEANUP_INTERVAL) {

@@ -109,6 +109,9 @@ public class DisplayLayer extends RenderLayer {
 		/** The sound source. */
 	    private final DisplaySoundSource soundSource;
 
+		private Vec3i nearestSoundSourcePos;
+		private float nearestSoundSourceDist;
+
 		// Timing //
 		/** Time in nanoseconds (monotonic) of the last use. */
 		private long lastUse = 0;
@@ -141,6 +144,23 @@ public class DisplayLayer extends RenderLayer {
 			}
 			this.futureGrabbers.clear();
 
+		}
+
+		private void resetSoundSource() {
+			if (this.nearestSoundSourcePos != null) {
+				this.soundSource.setPosition(this.nearestSoundSourcePos);
+			} else {
+				this.soundSource.stop();
+			}
+			this.nearestSoundSourcePos = null;
+			this.nearestSoundSourceDist = Float.MAX_VALUE;
+		}
+
+		private void pushSoundSource(Vec3i pos, float dist) {
+			if (dist < this.nearestSoundSourceDist) {
+				this.nearestSoundSourcePos = pos;
+				this.nearestSoundSourceDist = dist;
+			}
 		}
 		
 		// Playlist //
@@ -481,13 +501,12 @@ public class DisplayLayer extends RenderLayer {
 		this.inner.tick();
 	}
 
-	/**
-	 * Set the position of the display, used to change the sound source.
-	 * @param pos The position of the display.
-	 */
-	public void displaySetPos(Vec3i pos) {
-		// TODO: Use only the nearest source as the main and single source.
-		this.inner.soundSource.setPosition(pos);
+	public void resetSoundSource() {
+		this.inner.resetSoundSource();
+	}
+
+	public void pushSoundSource(Vec3i pos, float dist) {
+		this.inner.pushSoundSource(pos, dist);
 	}
 
 	/**

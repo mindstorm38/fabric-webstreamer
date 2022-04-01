@@ -5,19 +5,24 @@ import fr.theorozier.webstreamer.display.DisplayBlockEntity;
 import fr.theorozier.webstreamer.display.DisplaySourceUrl;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.render.GameRenderer;
 import net.minecraft.client.render.VertexConsumer;
 import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.render.block.entity.BlockEntityRenderer;
 import net.minecraft.client.render.block.entity.BlockEntityRendererFactory;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.state.property.Properties;
+import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Matrix4f;
 
 @Environment(EnvType.CLIENT)
 public class DisplayBlockEntityRenderer implements BlockEntityRenderer<DisplayBlockEntity> {
-    
+
+    private final GameRenderer gameRenderer = MinecraftClient.getInstance().gameRenderer;
+
     public DisplayBlockEntityRenderer(BlockEntityRendererFactory.Context ctx) {
-    
+
     }
 
     @Override
@@ -37,7 +42,8 @@ public class DisplayBlockEntityRenderer implements BlockEntityRenderer<DisplayBl
 
                 VertexConsumer buffer = vertexConsumers.getBuffer(layer);
 
-                layer.displaySetPos(entity.getPos());
+                BlockPos pos = entity.getPos();
+                layer.pushSoundSource(pos, pos.getManhattanDistance(this.gameRenderer.getCamera().getBlockPos()));
 
                 // Width/Height start coords
                 float ws = entity.getWidthOffset();
