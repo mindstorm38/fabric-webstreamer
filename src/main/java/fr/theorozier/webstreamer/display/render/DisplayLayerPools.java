@@ -51,10 +51,10 @@ public class DisplayLayerPools {
 			try {
 				return this.rawFileBuffers.remove(this.rawFileBuffers.size() - 1);
 			} catch (IndexOutOfBoundsException e) {
-				// 2 Mio buffer for pre-storing whole TransportStream file.
 				this.rawFileBuffersCount++;
 				System.out.println("Number of allocated raw file buffers: " + this.rawFileBuffersCount);
-				return ByteBuffer.allocate(1 << 21);
+				// 4 Mio buffer for pre-storing whole TransportStream file.
+				return ByteBuffer.allocate(1 << 22);
 			}
 		}
 	}
@@ -74,9 +74,9 @@ public class DisplayLayerPools {
 			try {
 				return this.soundBuffers.remove(this.soundBuffers.size() - 1);
 			} catch (IndexOutOfBoundsException e) {
-				// 8 Kio buffer for converting stereo to mono audio stream.
 				this.soundBuffersCount++;
 				System.out.println("Number of allocated sound buffers: " + this.soundBuffersCount);
+				// 8 Kio buffer for converting stereo to mono audio stream.
 				return ByteBuffer.allocateDirect(8192).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer();
 			}
 		}

@@ -39,10 +39,16 @@ public class FrameGrabber {
 
 	private ShortBuffer tempAudioBuffer;
 	
-	/** Buffers for OpenAL audio buffers to play. */
+	/**
+	 * Buffers for OpenAL audio buffers to play.
+	 * Buffers are in fact sorted in this queue because they are pushed while iterating
+	 * grabbed frames, and audio frames are assumed to be sorted, as well as image frames.
+	 */
 	private final ArrayDeque<TimedAudioBuffer> audioBuffers = new ArrayDeque<>();
 
+	/** Internal timestamped audio buffers, temporarily stored into the grabber. */
 	private record TimedAudioBuffer(int alBufferId, long timestamp) {
+		/** If the audio buffer is never requested for upload, we need to delete it here. */
 		void delete() {
 			AL10.alDeleteBuffers(this.alBufferId);
 		}
@@ -198,14 +204,15 @@ public class FrameGrabber {
 	 */
 	public void skipAudioBufferBefore(long timestamp) {
 		long realTimestamp = timestamp + this.refTimestamp;
-		// For the first grab on a grabber, we discard all sound buffers
-		// previous to it.
+		// This loop will ultimately break because if we don't break,
+		// we remove an element, if when we reach empty queue, it breaks.
 		while (!this.audioBuffers.isEmpty()) {
-			TimedAudioBuffer buf = this.audioBuffers.peek();
-			if (buf.timestamp < realTimestamp) {
-				buf.delete();
-				this.audioBuffers.remove();
+			// In first place we peek (not removing it) to check the timestamp.
+			if (this.audioBuffers.peek().timestamp > realTimestamp) {
+				break;
 			}
+			// If before timestamp, we remove and then delete it.
+			this.audioBuffers.remove().delete();
 		}
 	}
 
