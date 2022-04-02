@@ -1,7 +1,7 @@
 package fr.theorozier.webstreamer.display.render;
 
 import com.mojang.blaze3d.systems.RenderSystem;
-import fr.theorozier.webstreamer.display.DisplayUrl;
+import fr.theorozier.webstreamer.display.client.DisplayUrl;
 import io.lindstrom.m3u8.model.MediaPlaylist;
 import io.lindstrom.m3u8.model.MediaSegment;
 import io.lindstrom.m3u8.parser.MediaPlaylistParser;

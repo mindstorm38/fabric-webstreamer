@@ -2,7 +2,10 @@ package fr.theorozier.webstreamer.display;
 
 import fr.theorozier.webstreamer.WebStreamerClientMod;
 import fr.theorozier.webstreamer.WebStreamerMod;
+import fr.theorozier.webstreamer.display.client.DisplayUrl;
 import fr.theorozier.webstreamer.display.source.DisplaySource;
+import net.fabricmc.api.EnvType;
+import net.fabricmc.api.Environment;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.entity.BlockEntity;
 import net.minecraft.nbt.NbtCompound;
@@ -11,8 +14,10 @@ import net.minecraft.util.math.BlockPos;
 import java.net.URL;
 
 public class DisplayBlockEntity extends BlockEntity {
-
+    
     private DisplaySource source;
+    
+    @Environment(EnvType.CLIENT)
     private DisplayUrl url;
 
     private float width = 1;
@@ -24,23 +29,25 @@ public class DisplayBlockEntity extends BlockEntity {
     public DisplayBlockEntity(BlockPos pos, BlockState state) {
         super(WebStreamerMod.DISPLAY_BLOCK_ENTITY, pos, state);
     }
-
+    
+    @Environment(EnvType.CLIENT)
     public void setSource(DisplaySource source) {
         this.source = source;
         this.url = null;
         if (source != null) {
             URL urlRaw = source.getUrl();
             if (urlRaw != null) {
-                // FIXME: This should be only called on Client side env
                 this.url = new DisplayUrl(urlRaw, WebStreamerClientMod.DISPLAY_URLS.allocUrl(urlRaw));
             }
         }
     }
-
+    
+    @Environment(EnvType.CLIENT)
     public DisplaySource getSource() {
         return source;
     }
-
+    
+    @Environment(EnvType.CLIENT)
     public DisplayUrl getUrl() {
         return url;
     }
@@ -75,11 +82,17 @@ public class DisplayBlockEntity extends BlockEntity {
     @Override
     protected void writeNbt(NbtCompound nbt) {
         super.writeNbt(nbt);
+        if (this.source != null) {
+            this.source.writeNbt(nbt);
+        }
     }
 
     @Override
     public void readNbt(NbtCompound nbt) {
         super.readNbt(nbt);
+        if (this.source != null) {
+            this.source.readNbt(nbt);
+        }
     }
 
 }

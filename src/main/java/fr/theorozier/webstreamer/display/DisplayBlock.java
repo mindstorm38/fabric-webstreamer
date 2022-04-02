@@ -11,6 +11,7 @@ import net.minecraft.util.ActionResult;
 import net.minecraft.util.Hand;
 import net.minecraft.util.hit.BlockHitResult;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Direction;
 import net.minecraft.util.shape.VoxelShape;
 import net.minecraft.util.shape.VoxelShapes;
 import net.minecraft.world.BlockView;
@@ -51,7 +52,11 @@ public class DisplayBlock extends BlockWithEntity {
     @Nullable
     @Override
     public BlockState getPlacementState(ItemPlacementContext ctx) {
-        return this.getDefaultState().with(Properties.HORIZONTAL_FACING, ctx.getPlayerFacing().getOpposite());
+        Direction dir = ctx.getSide();
+        if (dir == Direction.DOWN || dir == Direction.UP) {
+            dir = ctx.getPlayerFacing().getOpposite();
+        }
+        return this.getDefaultState().with(Properties.HORIZONTAL_FACING, dir);
     }
     
     @Override

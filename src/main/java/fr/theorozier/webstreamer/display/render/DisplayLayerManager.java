@@ -1,7 +1,7 @@
 package fr.theorozier.webstreamer.display.render;
 
 import com.mojang.blaze3d.systems.RenderSystem;
-import fr.theorozier.webstreamer.display.DisplayUrl;
+import fr.theorozier.webstreamer.display.client.DisplayUrl;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
