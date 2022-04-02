@@ -13,7 +13,7 @@ import java.net.URL;
 public class DisplayBlockEntity extends BlockEntity {
 
     private DisplaySource source;
-    private DisplaySourceUrl url;
+    private DisplayUrl url;
 
     private float width = 1;
     private float height = 1;
@@ -32,7 +32,7 @@ public class DisplayBlockEntity extends BlockEntity {
             URL urlRaw = source.getUrl();
             if (urlRaw != null) {
                 // FIXME: This should be only called on Client side env
-                this.url = new DisplaySourceUrl(urlRaw, WebStreamerClientMod.DISPLAY_URLS.allocUrl(urlRaw));
+                this.url = new DisplayUrl(urlRaw, WebStreamerClientMod.DISPLAY_URLS.allocUrl(urlRaw));
             }
         }
     }
@@ -41,7 +41,7 @@ public class DisplayBlockEntity extends BlockEntity {
         return source;
     }
 
-    public DisplaySourceUrl getUrl() {
+    public DisplayUrl getUrl() {
         return url;
     }
 

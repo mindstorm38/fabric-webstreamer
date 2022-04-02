@@ -1,16 +1,10 @@
 package fr.theorozier.webstreamer.display.render;
 
 import com.mojang.blaze3d.systems.RenderSystem;
-import fr.theorozier.webstreamer.display.DisplaySourceUrl;
+import fr.theorozier.webstreamer.display.DisplayUrl;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import org.jetbrains.annotations.NotNull;
-
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ThreadFactory;
-import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * This class is responsible for caching and keeping the number of layer to the minimum.
@@ -31,7 +25,7 @@ public class DisplayLayerManager {
     /** Time in nanoseconds (monotonic) of the last cleanup for unused layers. */
     private long lastCleanup = 0;
 
-    public DisplayLayer forSource(DisplaySourceUrl url) {
+    public DisplayLayer forSource(DisplayUrl url) {
         DisplayLayer layer = this.layers.get(url.id());
         if (layer == null) {
             if (this.layers.size() >= MAX_LAYERS_COUNT) {

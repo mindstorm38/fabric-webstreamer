@@ -1,7 +1,7 @@
 package fr.theorozier.webstreamer.display.render;
 
 import com.mojang.blaze3d.systems.RenderSystem;
-import fr.theorozier.webstreamer.display.DisplaySourceUrl;
+import fr.theorozier.webstreamer.display.DisplayUrl;
 import io.lindstrom.m3u8.model.MediaPlaylist;
 import io.lindstrom.m3u8.model.MediaSegment;
 import io.lindstrom.m3u8.parser.MediaPlaylistParser;
@@ -44,7 +44,7 @@ public class DisplayLayer extends RenderLayer {
 
 		private final DisplayLayerPools pools;
 		
-        private final DisplaySourceUrl url;
+        private final DisplayUrl url;
         private final DisplayTexture tex;
     
         private final MediaPlaylistParser hlsParser;
@@ -117,7 +117,7 @@ public class DisplayLayer extends RenderLayer {
 		/** Time in nanoseconds (monotonic) of the last internal cleanup. */
 		private long lastCleanup = 0;
 
-        Inner(DisplayLayerPools pools, DisplaySourceUrl url) {
+        Inner(DisplayLayerPools pools, DisplayUrl url) {
 
 			this.pools = pools;
 			
@@ -456,7 +456,7 @@ public class DisplayLayer extends RenderLayer {
 	
 	private final Inner inner;
 
-    public DisplayLayer(DisplayLayerPools pools, DisplaySourceUrl url) {
+    public DisplayLayer(DisplayLayerPools pools, DisplayUrl url) {
 		// We are using an inner class just for the "super" call to be first.
         this(new Inner(pools, url));
     }

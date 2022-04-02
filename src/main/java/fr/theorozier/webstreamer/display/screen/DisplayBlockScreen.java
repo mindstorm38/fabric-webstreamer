@@ -1,9 +1,13 @@
 package fr.theorozier.webstreamer.display.screen;
 
+import fr.theorozier.webstreamer.WebStreamerClientMod;
 import fr.theorozier.webstreamer.display.DisplayBlockEntity;
 import fr.theorozier.webstreamer.display.source.DisplaySource;
 import fr.theorozier.webstreamer.display.source.RawDisplaySource;
 import fr.theorozier.webstreamer.display.source.TwitchDisplaySource;
+import fr.theorozier.webstreamer.playlist.Playlist;
+import fr.theorozier.webstreamer.playlist.PlaylistQuality;
+import fr.theorozier.webstreamer.twitch.TwitchClient;
 import fr.theorozier.webstreamer.util.AsyncProcessor;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
@@ -300,12 +304,13 @@ public class DisplayBlockScreen extends Screen {
         private TextFieldWidget channelField;
         private QualitySliderWidget qualitySlider;
 
-        private final AsyncProcessor<String, TwitchDisplaySource.Playlist, TwitchDisplaySource.PlaylistException> asyncPlaylist = new AsyncProcessor<>(TwitchDisplaySource::requestPlaylist);
-        private TwitchDisplaySource.Playlist playlist;
+        private final AsyncProcessor<String, Playlist, TwitchClient.PlaylistException> asyncPlaylist;
+        private Playlist playlist;
         private Text playlistError;
 
         TwitchSourceScreen(TwitchDisplaySource source) {
             super(source);
+            this.asyncPlaylist = new AsyncProcessor<>(WebStreamerClientMod.TWITCH_CLIENT::requestPlaylist);
         }
 
         TwitchSourceScreen() {
@@ -379,11 +384,11 @@ public class DisplayBlockScreen extends Screen {
             this.asyncPlaylist.push(channel);
         }
 
-        private void onQualityChanged(TwitchDisplaySource.PlaylistQuality quality) {
+        private void onQualityChanged(PlaylistQuality quality) {
             if (quality == null) {
-                this.source.clearChannelAndUrl();
+                this.source.clearChannelQuality();
             } else if (this.playlist != null) {
-                this.source.setChannelAndUrl(this.playlist.getChannel(), quality.name(), quality.url());
+                this.source.setChannelQuality(this.playlist.getChannel(), quality);
             }
         }
 
@@ -396,21 +401,21 @@ public class DisplayBlockScreen extends Screen {
     private static class QualitySliderWidget extends SliderWidget {
 
         private int qualityIndex = -1;
-        private List<TwitchDisplaySource.PlaylistQuality> qualities;
-        private Consumer<TwitchDisplaySource.PlaylistQuality> changedListener;
+        private List<PlaylistQuality> qualities;
+        private Consumer<PlaylistQuality> changedListener;
 
         public QualitySliderWidget(int x, int y, int width, int height) {
             super(x, y, width, height, LiteralText.EMPTY, 0.0);
             this.setQualities(null);
         }
 
-        public void setQualities(List<TwitchDisplaySource.PlaylistQuality> qualities) {
+        public void setQualities(List<PlaylistQuality> qualities) {
             this.qualities = qualities;
             this.applyValue();
             this.updateMessage();
         }
 
-        public void setChangedListener(Consumer<TwitchDisplaySource.PlaylistQuality> changedListener) {
+        public void setChangedListener(Consumer<PlaylistQuality> changedListener) {
             this.changedListener = changedListener;
         }
 

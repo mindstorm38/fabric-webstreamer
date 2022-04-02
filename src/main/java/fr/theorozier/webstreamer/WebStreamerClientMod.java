@@ -1,6 +1,7 @@
 package fr.theorozier.webstreamer;
 
-import fr.theorozier.webstreamer.display.DisplayUrlManager;
+import fr.theorozier.webstreamer.display.client.DisplayUrlManager;
+import fr.theorozier.webstreamer.twitch.TwitchClient;
 import fr.theorozier.webstreamer.display.render.DisplayBlockEntityRenderer;
 import fr.theorozier.webstreamer.display.render.DisplayLayerManager;
 import net.fabricmc.api.ClientModInitializer;
@@ -17,6 +18,7 @@ public class WebStreamerClientMod implements ClientModInitializer {
 
     public static DisplayUrlManager DISPLAY_URLS;
     public static DisplayLayerManager DISPLAY_LAYERS;
+    public static TwitchClient TWITCH_CLIENT;
 
     @Override
     public void onInitializeClient() {
@@ -26,7 +28,8 @@ public class WebStreamerClientMod implements ClientModInitializer {
 
         DISPLAY_URLS = new DisplayUrlManager();
         DISPLAY_LAYERS = new DisplayLayerManager();
-
+        TWITCH_CLIENT = new TwitchClient();
+        
         FFmpegLogCallback.setLevel(avutil.AV_LOG_QUIET);
     
     }
