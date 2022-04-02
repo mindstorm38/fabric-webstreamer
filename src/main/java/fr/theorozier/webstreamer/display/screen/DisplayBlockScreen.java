@@ -2,6 +2,7 @@ package fr.theorozier.webstreamer.display.screen;
 
 import fr.theorozier.webstreamer.WebStreamerClientMod;
 import fr.theorozier.webstreamer.display.DisplayBlockEntity;
+import fr.theorozier.webstreamer.display.DisplayNetworking;
 import fr.theorozier.webstreamer.display.source.DisplaySource;
 import fr.theorozier.webstreamer.display.source.RawDisplaySource;
 import fr.theorozier.webstreamer.display.source.TwitchDisplaySource;
@@ -11,6 +12,7 @@ import fr.theorozier.webstreamer.twitch.TwitchClient;
 import fr.theorozier.webstreamer.util.AsyncProcessor;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
+import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.gui.Drawable;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.screen.ScreenTexts;
@@ -78,10 +80,10 @@ public class DisplayBlockScreen extends Screen {
         DisplaySource source = blockEntity.getSource();
         if (source instanceof RawDisplaySource rawSource) {
             this.sourceType = SourceType.RAW;
-            this.sourceScreen = new RawSourceScreen(rawSource);
+            this.sourceScreen = new RawSourceScreen(new RawDisplaySource(rawSource));
         } else if (source instanceof TwitchDisplaySource twitchSource) {
             this.sourceType = SourceType.TWITCH;
-            this.sourceScreen = new TwitchSourceScreen(twitchSource);
+            this.sourceScreen = new TwitchSourceScreen(new TwitchDisplaySource(twitchSource));
         } else {
             this.sourceType = SourceType.RAW;
             this.sourceScreen = new RawSourceScreen();
@@ -176,6 +178,7 @@ public class DisplayBlockScreen extends Screen {
             if (this.sourceScreen != null) {
                 this.blockEntity.setSource(this.sourceScreen.source);
             }
+            DisplayNetworking.Client.sendDisplayUpdate(this.blockEntity);
         }
         this.close();
     }
@@ -281,9 +284,9 @@ public class DisplayBlockScreen extends Screen {
 
         @Override
         public void render(MatrixStack matrices, int mouseX, int mouseY, float delta) {
-            drawTextWithShadow(matrices, textRenderer, URL_TEXT, xHalf - 150, ySourceTop, 0xA0A0A0);
+            drawTextWithShadow(matrices, textRenderer, URL_TEXT, xHalf - 154, ySourceTop, 0xA0A0A0);
             if (this.source.getUrl() == null) {
-                drawCenteredText(matrices, textRenderer, MALFORMED_URL_TEXT, xHalf, ySourceTop + 40, 0xFF6052);
+                drawCenteredText(matrices, textRenderer, MALFORMED_URL_TEXT, xHalf, ySourceTop + 50, 0xFF6052);
             }
         }
 
@@ -303,6 +306,8 @@ public class DisplayBlockScreen extends Screen {
 
         private TextFieldWidget channelField;
         private QualitySliderWidget qualitySlider;
+        
+        private PlaylistQuality firstQuality;
 
         private final AsyncProcessor<String, Playlist, TwitchClient.PlaylistException> asyncPlaylist;
         private Playlist playlist;
@@ -310,6 +315,7 @@ public class DisplayBlockScreen extends Screen {
 
         TwitchSourceScreen(TwitchDisplaySource source) {
             super(source);
+            this.firstQuality = source.getQuality();
             this.asyncPlaylist = new AsyncProcessor<>(WebStreamerClientMod.TWITCH_CLIENT::requestPlaylist);
         }
 
@@ -364,6 +370,10 @@ public class DisplayBlockScreen extends Screen {
             this.asyncPlaylist.fetch(executor, pl -> {
                 this.playlist = pl;
                 this.qualitySlider.setQualities(pl.getQualities());
+                if (this.firstQuality != null) {
+                    this.qualitySlider.setQuality(this.firstQuality);
+                    this.firstQuality = null;
+                }
                 this.playlistError = null;
                 this.updateQualitySlider();
             }, exc -> {
@@ -413,6 +423,20 @@ public class DisplayBlockScreen extends Screen {
             this.qualities = qualities;
             this.applyValue();
             this.updateMessage();
+        }
+        
+        public void setQuality(PlaylistQuality quality) {
+            for (int i = 0; i < this.qualities.size(); i++) {
+                if (this.qualities.get(i).name().equals(quality.name())) {
+                    this.qualityIndex = i;
+                    this.value = (double) this.qualityIndex  / (double) (this.qualities.size() - 1);
+                    this.updateMessage();
+                    if (this.changedListener != null) {
+                        this.changedListener.accept(this.qualities.get(i));
+                    }
+                    return;
+                }
+            }
         }
 
         public void setChangedListener(Consumer<PlaylistQuality> changedListener) {

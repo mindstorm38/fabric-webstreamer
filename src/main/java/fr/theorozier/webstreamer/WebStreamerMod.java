@@ -2,6 +2,7 @@ package fr.theorozier.webstreamer;
 
 import fr.theorozier.webstreamer.display.DisplayBlock;
 import fr.theorozier.webstreamer.display.DisplayBlockEntity;
+import fr.theorozier.webstreamer.display.DisplayNetworking;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.item.v1.FabricItemSettings;
 import net.fabricmc.fabric.api.object.builder.v1.block.entity.FabricBlockEntityTypeBuilder;
@@ -26,7 +27,9 @@ public class WebStreamerMod implements ModInitializer {
         Registry.register(Registry.BLOCK, "webstreamer:display", DISPLAY_BLOCK);
         Registry.register(Registry.ITEM, "webstreamer:display", new BlockItem(DISPLAY_BLOCK, new FabricItemSettings().group(ItemGroup.REDSTONE)));
         DISPLAY_BLOCK_ENTITY = Registry.register(Registry.BLOCK_ENTITY_TYPE, "webstreamer:display", FabricBlockEntityTypeBuilder.create(DisplayBlockEntity::new, DISPLAY_BLOCK).build());
-
+        
+        DisplayNetworking.Server.registerDisplayUpdateReceiver();
+        
         LOGGER.info("WebStreamer started.");
 
     }

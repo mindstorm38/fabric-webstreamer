@@ -1,5 +1,7 @@
 package fr.theorozier.webstreamer.display.render;
 
+import net.fabricmc.api.EnvType;
+import net.fabricmc.api.Environment;
 import org.jetbrains.annotations.NotNull;
 
 import java.net.http.HttpClient;
@@ -17,6 +19,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  * Different pool types given to {@link DisplayLayer} as a centralized way of getting
  * access to heavy heap buffers. This also provides a thread pool executor.
  */
+@Environment(EnvType.CLIENT)
 public class DisplayLayerPools {
 	
 	private final ExecutorService executor = Executors.newFixedThreadPool(2, new ThreadFactory() {

@@ -66,6 +66,7 @@ public class AsyncProcessor<FROM, TO, EXC extends Exception> {
         return this.future == null;
     }
 
+    @FunctionalInterface
     public interface Converter<FROM, TO, EXC extends Exception> {
         TO convert(FROM from) throws EXC;
     }

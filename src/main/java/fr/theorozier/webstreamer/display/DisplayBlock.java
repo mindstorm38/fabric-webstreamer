@@ -20,6 +20,8 @@ import org.jetbrains.annotations.Nullable;
 
 public class DisplayBlock extends BlockWithEntity {
 
+    public static final int PERMISSION_LEVEL = 2;
+    
     private static final VoxelShape SHAPE_NORTH = VoxelShapes.cuboid(0, 0, 0.9, 1, 1, 1);
     private static final VoxelShape SHAPE_SOUTH = VoxelShapes.cuboid(0, 0, 0, 1, 1, 0.1);
     private static final VoxelShape SHAPE_WEST = VoxelShapes.cuboid(0.9, 0, 0, 1, 1, 1);
@@ -73,7 +75,7 @@ public class DisplayBlock extends BlockWithEntity {
     @Override
     public ActionResult onUse(BlockState state, World world, BlockPos pos, PlayerEntity player, Hand hand, BlockHitResult hit) {
         BlockEntity be = world.getBlockEntity(pos);
-        if (be instanceof DisplayBlockEntity dbe && player instanceof DisplayBlockInteract interact) {
+        if (player.hasPermissionLevel(PERMISSION_LEVEL) && be instanceof DisplayBlockEntity dbe && player instanceof DisplayBlockInteract interact) {
             interact.openDisplayBlockScreen(dbe);
             return ActionResult.success(true);
         } else {

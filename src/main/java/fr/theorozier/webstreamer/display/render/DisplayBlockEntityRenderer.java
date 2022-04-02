@@ -21,14 +21,17 @@ public class DisplayBlockEntityRenderer implements BlockEntityRenderer<DisplayBl
 
     private final GameRenderer gameRenderer = MinecraftClient.getInstance().gameRenderer;
 
+    @SuppressWarnings("unused")
     public DisplayBlockEntityRenderer(BlockEntityRendererFactory.Context ctx) {
-
+    
     }
 
     @Override
     public void render(DisplayBlockEntity entity, float tickDelta, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light, int overlay) {
-
-        DisplayUrl url = entity.getUrl();
+    
+        DisplayRenderData renderData = (DisplayRenderData) entity.getRenderData();
+        
+        DisplayUrl url = renderData.getUrl();
         if (url != null) {
     
             DisplayLayer layer = WebStreamerClientMod.DISPLAY_LAYERS.forSource(url);
@@ -46,8 +49,8 @@ public class DisplayBlockEntityRenderer implements BlockEntityRenderer<DisplayBl
                 layer.pushSoundSource(pos, pos.getManhattanDistance(this.gameRenderer.getCamera().getBlockPos()));
 
                 // Width/Height start coords
-                float ws = entity.getWidthOffset();
-                float hs = entity.getHeightOffset();
+                float ws = renderData.getWidthOffset();
+                float hs = renderData.getHeightOffset();
                 // Width/Height end coords
                 float we = ws + entity.getWidth();
                 float he = hs + entity.getHeight();
