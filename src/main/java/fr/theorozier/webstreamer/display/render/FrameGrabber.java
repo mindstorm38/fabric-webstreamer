@@ -6,12 +6,21 @@ import org.bytedeco.javacv.FFmpegFrameGrabber;
 import org.bytedeco.javacv.Frame;
 import org.lwjgl.openal.AL10;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.io.InputStream;
+import java.net.URI;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.nio.Buffer;
+import java.nio.BufferOverflowException;
 import java.nio.ByteBuffer;
 import java.nio.ShortBuffer;
+import java.time.Duration;
 import java.util.ArrayDeque;
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
+import java.util.concurrent.Flow;
 
 /**
  * A specialized frame grabber for displays.
@@ -19,56 +28,98 @@ import java.util.ArrayDeque;
 @Environment(EnvType.CLIENT)
 public class FrameGrabber {
 
-	private final FFmpegFrameGrabber grabber;
+	private final DisplayLayerPools pools;
+	private final URI uri;
+	
+	private ByteBuffer buffer;
+	private FFmpegFrameGrabber grabber;
 	private long refTimestamp;
 	private long deltaTimestamp;
 	private Frame lastFrame;
 
+	private ShortBuffer tempAudioBuffer;
+	
 	/** Buffers for OpenAL audio buffers to play. */
 	private final ArrayDeque<TimedAudioBuffer> audioBuffers = new ArrayDeque<>();
-
 
 	private record TimedAudioBuffer(int alBufferId, long timestamp) {
 		void delete() {
 			AL10.alDeleteBuffers(this.alBufferId);
 		}
 	}
-
-	public FrameGrabber(InputStream inputStream) {
-		// TODO: Maybe pre-downloading could be a good idea to avoid lags on grabs.
-		this.grabber = new FFmpegFrameGrabber(inputStream);
+	
+	public FrameGrabber(DisplayLayerPools pools, URI uri) {
+		this.pools = pools;
+		this.uri = uri;
 	}
 
-	public void start() throws IOException {
+	public void start() throws InterruptedException, IOException {
 
-		this.grabber.startUnsafe();
-
-		this.refTimestamp = 0L;
-		this.deltaTimestamp = 0L;
-		this.lastFrame = null;
-
-		Frame frame;
-		while ((frame = this.grabber.grab()) != null) {
-			if (frame.image != null) {
-				this.refTimestamp = frame.timestamp;
-				this.lastFrame = frame;
-				this.lastFrame.timestamp = 0L;
-				break;
-			} else if (frame.samples != null) {
-				// It is intentional for audio frames to keep their real timestamp
-				// because we usually get audio frames before the first image frame
-				// and therefor we can't know the relative timestamp.
-				this.pushAudioBuffer(frame);
+		if (this.grabber != null || this.buffer != null) {
+			throw new IllegalStateException("already started");
+		}
+		
+		try {
+	
+			HttpRequest req = HttpRequest.newBuilder(this.uri)
+					.GET()
+					.timeout(Duration.ofSeconds(1))
+					.build();
+			
+			this.buffer = this.pools.allocRawFileBuffer();
+			this.pools.getHttpClient().send(req, info -> new BufferResponseSubscriber(this.buffer));
+			ByteArrayInputStream grabberStream = new ByteArrayInputStream(this.buffer.array(), this.buffer.position(), this.buffer.remaining());
+			
+			this.grabber = new FFmpegFrameGrabber(grabberStream);
+			this.grabber.startUnsafe();
+			
+			this.tempAudioBuffer = this.pools.allocSoundBuffer();
+		
+			this.refTimestamp = 0L;
+			this.deltaTimestamp = 0L;
+			this.lastFrame = null;
+		
+			Frame frame;
+			while ((frame = this.grabber.grab()) != null) {
+				if (frame.image != null) {
+					this.refTimestamp = frame.timestamp;
+					this.lastFrame = frame;
+					this.lastFrame.timestamp = 0L;
+					break;
+				} else if (frame.samples != null) {
+					// It is intentional for audio frames to keep their real timestamp
+					// because we usually get audio frames before the first image frame
+					// and therefor we can't know the relative timestamp.
+					this.pushAudioBuffer(frame);
+				}
 			}
+		
+		} catch (InterruptedException | IOException | RuntimeException e) {
+			if (this.buffer != null) {
+				this.pools.freeRawFileBuffer(this.buffer);
+				this.buffer = null;
+			}
+			throw e;
 		}
 
 	}
 
 	public void stop() {
 
+		if (this.grabber == null || this.buffer == null || this.tempAudioBuffer == null) {
+			throw new IllegalStateException();
+		}
+		
 		try {
 			this.grabber.releaseUnsafe();
 		} catch (IOException ignored) { }
+		
+		this.pools.freeRawFileBuffer(this.buffer);
+		this.pools.freeSoundBuffer(this.tempAudioBuffer);
+		
+		this.buffer = null;
+		this.grabber = null;
+		this.tempAudioBuffer = null;
 
 		while (!this.audioBuffers.isEmpty()) {
 			this.audioBuffers.poll().delete();
@@ -83,22 +134,6 @@ public class FrameGrabber {
 	 * @return The grabbed frame or null if frame has not updated since last grab.
 	 */
 	public Frame grabAt(long timestamp) throws IOException {
-
-//		if (!this.firstGrabbed) {
-//			this.firstGrabbed = true;
-//			System.out.println("first grab at: " + ((double) timestamp / 1000000.0));
-//			/*long realTimestamp = timestamp + this.refTimestamp;
-//			// For the first grab on a grabber, we discard all sound buffers
-//			// previous to it.
-//			Iterator<TimedAudioBuffer> it = this.audioBuffers.iterator();
-//			while (it.hasNext()) {
-//				TimedAudioBuffer buf = it.next();
-//				if (buf.timestamp < realTimestamp) {
-//					buf.delete();
-//					it.remove();
-//				}
-//			}*/
-//		}
 
 		if (this.lastFrame != null) {
 			if (this.lastFrame.timestamp <= timestamp) {
@@ -177,20 +212,87 @@ public class FrameGrabber {
 	private void pushAudioBuffer(Frame frame) {
 
 		Buffer sample = frame.samples[0];
-
-		int bufferId = AL10.alGenBuffers();
-
+		
+		this.tempAudioBuffer.clear();
+		
 		if (sample instanceof ByteBuffer sampleByte) {
-			AL10.alBufferData(bufferId, AL10.AL_FORMAT_STEREO8, sampleByte, frame.sampleRate);
+			int count = sampleByte.remaining();
+			for (int i = 0; i < count; i += 2) {
+				short sampleLeft = (short) ((int) sampleByte.get(i) << 8);
+				short sampleRight = (short) ((int) sampleByte.get(i + 1) << 8);
+				this.tempAudioBuffer.put((short) ((sampleLeft + sampleRight) / 2));
+			}
 		} else if (sample instanceof ShortBuffer sampleShort) {
-			AL10.alBufferData(bufferId, AL10.AL_FORMAT_STEREO16, sampleShort, frame.sampleRate);
+			int count = sampleShort.remaining();
+			for (int i = 0; i < count; i += 2) {
+				short sampleLeft = sampleShort.get(i);
+				short sampleRight = sampleShort.get(i + 1);
+				this.tempAudioBuffer.put((short) (((int) sampleLeft + (int) sampleRight) / 2));
+			}
 		} else {
-			AL10.alDeleteBuffers(bufferId);
-			throw new IllegalArgumentException("Unsupported sample format.");
+			return;
+			// throw new IllegalArgumentException("unsupported sample format");
 		}
-
+		
+		int bufferId = AL10.alGenBuffers();
+		this.tempAudioBuffer.flip();
+		AL10.alBufferData(bufferId, AL10.AL_FORMAT_MONO16, this.tempAudioBuffer, frame.sampleRate);
 		this.audioBuffers.add(new TimedAudioBuffer(bufferId, frame.timestamp));
 
+	}
+	
+	/**
+	 * Internal class that serves as an HTTP response subscriber that fills a given {@link ByteBuffer}.
+	 * The buffer is automatically rewinded before pushing data into it.
+	 */
+	private static class BufferResponseSubscriber implements HttpResponse.BodySubscriber<Object> {
+		
+		private final CompletableFuture<Object> future = new CompletableFuture<>();
+		private final ByteBuffer buffer;
+		private Flow.Subscription subscription;
+		
+		public BufferResponseSubscriber(ByteBuffer buffer) {
+			this.buffer = buffer;
+		}
+		
+		@Override
+		public CompletionStage<Object> getBody() {
+			return this.future;
+		}
+		
+		@Override
+		public void onSubscribe(Flow.Subscription subscription) {
+			if (this.subscription != null) {
+				this.subscription.cancel();
+			}
+			this.subscription = subscription;
+			this.subscription.request(Long.MAX_VALUE);
+			this.buffer.clear();
+		}
+		
+		@Override
+		public void onNext(List<ByteBuffer> item) {
+			for (ByteBuffer buf : item) {
+				try {
+					this.buffer.put(buf);
+				} catch (BufferOverflowException e) {
+					System.out.println("pos before crashing: " + this.buffer.position() + ", incoming buf: " + buf.remaining());
+					this.future.completeExceptionally(e);
+				}
+			}
+		}
+		
+		@Override
+		public void onError(Throwable throwable) {
+			this.future.completeExceptionally(throwable);
+		}
+		
+		@Override
+		public void onComplete() {
+			this.buffer.flip();
+			this.future.complete(null);
+		}
+		
 	}
 
 }

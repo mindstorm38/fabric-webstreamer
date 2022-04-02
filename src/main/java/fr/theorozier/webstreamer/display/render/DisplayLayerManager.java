@@ -25,16 +25,8 @@ public class DisplayLayerManager {
 
     private final Int2ObjectOpenHashMap<DisplayLayer> layers = new Int2ObjectOpenHashMap<>();
     
-    private final ExecutorService executor = Executors.newFixedThreadPool(2, new ThreadFactory() {
-        
-        private final AtomicInteger counter = new AtomicInteger();
-        
-        @Override
-        public Thread newThread(@NotNull Runnable r) {
-            return new Thread(r, "WebStream Display Queue (" + this.counter.getAndIncrement() + ")");
-        }
-        
-    });
+    /** Common pools for shared and reusable heavy buffers. */
+    private final DisplayLayerPools pools = new DisplayLayerPools();
 
     /** Time in nanoseconds (monotonic) of the last cleanup for unused layers. */
     private long lastCleanup = 0;
@@ -45,7 +37,7 @@ public class DisplayLayerManager {
             if (this.layers.size() >= MAX_LAYERS_COUNT) {
                 return null;
             }
-            layer = new DisplayLayer(this.executor, url);
+            layer = new DisplayLayer(this.pools, url);
             this.layers.put(url.id(), layer);
         }
         return layer;

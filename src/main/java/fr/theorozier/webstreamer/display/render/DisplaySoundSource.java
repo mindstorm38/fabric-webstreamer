@@ -17,7 +17,7 @@ public class DisplaySoundSource {
 		AL10.alSourcei(this.sourceId, AL10.AL_LOOPING, AL10.AL_FALSE);
 		AL10.alSourcei(this.sourceId, AL10.AL_SOURCE_RELATIVE, AL10.AL_FALSE);
 		this.setVolume(1.0f);
-		this.setAttenuation(0.1f);
+		this.setAttenuation(10.0f);
 	}
 
 	public void stop() {
@@ -38,9 +38,9 @@ public class DisplaySoundSource {
 		AL10.alSourcef(this.sourceId, AL10.AL_GAIN, volume);
 	}
 	
-	public void disableAttenuation() {
+	/*public void disableAttenuation() {
 		AL10.alSourcei(this.sourceId, AL10.AL_DISTANCE_MODEL, AL10.AL_NONE);
-	}
+	}*/
 	
 	public void setAttenuation(float attenuation) {
 		AL10.alSourcei(this.sourceId, AL10.AL_DISTANCE_MODEL, AL11.AL_LINEAR_DISTANCE);
@@ -60,7 +60,6 @@ public class DisplaySoundSource {
 		checkErrors("Queue buffers");
 
 		if (AL10.alGetSourcef(this.sourceId, AL10.AL_SOURCE_STATE) !=  AL10.AL_PLAYING) {
-			System.out.println("playing again...");
 			AL10.alSourcePlay(this.sourceId);
 		}
 

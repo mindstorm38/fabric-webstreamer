@@ -17,11 +17,10 @@ import org.bytedeco.javacv.Frame;
 import org.lwjgl.opengl.GL11;
 
 import java.io.IOException;
-import java.net.URL;
 import java.util.Iterator;
 import java.util.List;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 
 /**
@@ -43,7 +42,7 @@ public class DisplayLayer extends RenderLayer {
 
     private static class Inner {
 
-		private final ExecutorService executor;
+		private final DisplayLayerPools pools;
 		
         private final DisplaySourceUrl url;
         private final DisplayTexture tex;
@@ -118,9 +117,9 @@ public class DisplayLayer extends RenderLayer {
 		/** Time in nanoseconds (monotonic) of the last internal cleanup. */
 		private long lastCleanup = 0;
 
-        Inner(ExecutorService executor, DisplaySourceUrl url) {
+        Inner(DisplayLayerPools pools, DisplaySourceUrl url) {
 
-			this.executor = executor;
+			this.pools = pools;
 			
             this.url = url;
             this.tex = new DisplayTexture();
@@ -140,7 +139,7 @@ public class DisplayLayer extends RenderLayer {
 			this.tex.clearGlId();
 			this.soundSource.free();
 			for (FutureGrabber grabber : this.futureGrabbers.values()) {
-				this.executor.execute(grabber::waitAndStop);
+				this.pools.getExecutor().execute(grabber::waitAndStop);
 			}
 			this.futureGrabbers.clear();
 
@@ -198,31 +197,28 @@ public class DisplayLayer extends RenderLayer {
 			int lastSegmentIndex = this.playlistSegments == null ? 0 : this.getLastSegmentIndex();
 			if (this.playlistRequestFuture == null && lastSegmentIndex > this.playlistRequestLastSegmentIndex) {
 				// System.out.println("=> Requesting playlist...");
-				this.playlistRequestFuture = this.executor.submit(this::requestPlaylistBlocking);
+				this.playlistRequestFuture = this.pools.getExecutor().submit(this::requestPlaylistBlocking);
 				this.playlistRequestLastSegmentIndex = lastSegmentIndex;
 			}
 		}
 	
 	    /** @return True if the playlist is set and ready to be used. */
 		private boolean pullPlaylist() {
-			if (this.playlistRequestFuture != null) {
-				if (this.playlistRequestFuture.isDone()) {
-					if (!this.playlistRequestFuture.isCancelled()) {
-						try {
-							MediaPlaylist playlist = this.playlistRequestFuture.get();
-							this.playlistSegments = playlist.mediaSegments();
-							this.playlistOffset = (int) playlist.mediaSequence();
-							this.playlistRequestFuture = null;
-							return true;
-						} catch (InterruptedException e) {
-							return false; // Do nothing else to allow retry.
-						} catch (ExecutionException ignored) {
-							// Go to return FAILED
-						}
-					}
+			if (this.playlistRequestFuture != null && this.playlistRequestFuture.isDone()) {
+				try {
+					MediaPlaylist playlist = this.playlistRequestFuture.get();
+					this.playlistSegments = playlist.mediaSegments();
+					this.playlistOffset = (int) playlist.mediaSequence();
 					this.playlistRequestFuture = null;
-					this.playlistRequestLastSegmentIndex = -1;
-				}
+					return true;
+				} catch (InterruptedException e) {
+					return false; // Do nothing else to allow retry.
+				} catch (ExecutionException e) {
+					// Go to return FAILED
+					e.printStackTrace();
+				} catch (CancellationException ignored) {}
+				this.playlistRequestFuture = null;
+				this.playlistRequestLastSegmentIndex = -1;
 			}
 			return false;
 		}
@@ -234,7 +230,7 @@ public class DisplayLayer extends RenderLayer {
 			while (it.hasNext()) {
 				FutureGrabber item = it.next();
 				if (item.isTimedOut(now)) {
-					this.executor.execute(item::waitAndStop);
+					this.pools.getExecutor().execute(item::waitAndStop);
 					it.remove();
 				}
 			}
@@ -245,9 +241,8 @@ public class DisplayLayer extends RenderLayer {
 			if (seg != null) {
 				this.futureGrabbers.computeIfAbsent(index, index0 -> {
 					// System.out.println("=> Request grabber for segment " + index0 + "/" + this.getLastSegmentIndex());
-					return new FutureGrabber(this.executor.submit(() -> {
-						URL segmentUrl = this.url.getContextUrl(seg.uri());
-						FrameGrabber grabber = new FrameGrabber(segmentUrl.openStream());
+					return new FutureGrabber(this.pools.getExecutor().submit(() -> {
+						FrameGrabber grabber = new FrameGrabber(this.pools, this.url.getContextUrl(seg.uri()).toURI());
 						grabber.start();
 						return grabber;
 					}), System.nanoTime());
@@ -260,20 +255,19 @@ public class DisplayLayer extends RenderLayer {
 			if (futureGrabber != null) {
 				Future<FrameGrabber> future = futureGrabber.future;
 				if (future.isDone()) {
-					if (!future.isCancelled()) {
-						try {
-							FrameGrabber grabber = future.get();
-							this.stopGrabber(true);
-							this.grabber = grabber;
-							// This grabber should have been started by the task.
-							this.futureGrabbers.remove(index);
-							return true;
-						} catch (InterruptedException e) {
-							return false; // Do nothing else to allow retry.
-						} catch (ExecutionException ignored) {
-							// Go next to remove.
-						}
-					}
+					try {
+						FrameGrabber grabber = future.get();
+						this.stopGrabber(true);
+						this.grabber = grabber;
+						// This grabber should have been started by the task.
+						this.futureGrabbers.remove(index);
+						return true;
+					} catch (InterruptedException e) {
+						return false; // Do nothing else to allow retry.
+					} catch (ExecutionException e) {
+						e.printStackTrace();
+						// Go next to remove.
+					} catch (CancellationException ignored) {}
 					this.futureGrabbers.remove(index);
 				}
 			} else {
@@ -288,7 +282,7 @@ public class DisplayLayer extends RenderLayer {
 					this.grabber.grabRemaining();
 					this.grabber.grabAudioAndUpload(this.soundSource);
 				}
-				this.executor.execute(this.grabber::stop);
+				this.pools.getExecutor().execute(this.grabber::stop);
 				this.grabber = null;
 			}
 		}
@@ -462,9 +456,9 @@ public class DisplayLayer extends RenderLayer {
 	
 	private final Inner inner;
 
-    public DisplayLayer(ExecutorService executor, DisplaySourceUrl url) {
+    public DisplayLayer(DisplayLayerPools pools, DisplaySourceUrl url) {
 		// We are using an inner class just for the "super" call to be first.
-        this(new Inner(executor, url));
+        this(new Inner(pools, url));
     }
 
     private DisplayLayer(Inner inner) {
@@ -479,9 +473,7 @@ public class DisplayLayer extends RenderLayer {
                     RenderSystem.enableTexture();
                     RenderSystem.setShaderTexture(0, inner.tex.getGlId());
                 },
-                () -> {
-					RenderSystem.disableDepthTest();
-				});
+		        RenderSystem::disableDepthTest);
 		
 		this.inner = inner;
 		
