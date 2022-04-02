@@ -13,23 +13,24 @@ import java.util.function.Consumer;
  * @param <TO> Output type of the conversion.
  * @param <EXC> The exception type.
  */
-public class AsyncProcess<FROM, TO, EXC extends Exception> {
+public class AsyncProcessor<FROM, TO, EXC extends Exception> {
 
     private final Converter<FROM, TO, EXC> converter;
 
-    private FROM pendingFrom;
-    private Future<TO> futureTo;
+    private FROM pending;
+    private boolean submitted;
+    private Future<TO> future;
 
-    public AsyncProcess(Converter<FROM, TO, EXC> converter) {
+    public AsyncProcessor(Converter<FROM, TO, EXC> converter) {
         this.converter = converter;
     }
 
     @SuppressWarnings("unchecked")
     public void fetch(ExecutorService executor, Consumer<TO> success, Consumer<EXC> error) {
 
-        if (this.futureTo != null && this.futureTo.isDone()) {
+        if (this.future != null && this.future.isDone()) {
             try {
-                success.accept(this.futureTo.get());
+                success.accept(this.future.get());
             } catch (InterruptedException | CancellationException e) {
                 // Cancel should not happen.
             } catch (ExecutionException ee) {
@@ -39,24 +40,30 @@ public class AsyncProcess<FROM, TO, EXC extends Exception> {
                     // Should not fail because of generic enforcement.
                 }
             } finally {
-                this.futureTo = null;
+                this.future = null;
             }
         }
 
-        if (this.futureTo == null && this.pendingFrom != null) {
-            FROM from = this.pendingFrom;
-            this.futureTo = executor.submit(() -> this.converter.convert(from));
-            this.pendingFrom = null;
+        if (this.future == null && this.pending != null && !this.submitted) {
+            FROM from = this.pending;
+            this.future = executor.submit(() -> this.converter.convert(from));
+            this.submitted = true;
         }
 
     }
 
     public void push(FROM from) {
-        this.pendingFrom = from;
+        if (!from.equals(this.pending)) {
+            this.pending = from;
+            this.submitted = false;
+        }
     }
-
-    public boolean active() {
-        return this.futureTo != null;
+    
+    /**
+     * @return Return <code>true</code> if this async processor is in idle state.
+     */
+    public boolean idle() {
+        return this.future == null;
     }
 
     public interface Converter<FROM, TO, EXC extends Exception> {

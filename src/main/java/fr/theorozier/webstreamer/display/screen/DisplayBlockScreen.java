@@ -4,7 +4,7 @@ import fr.theorozier.webstreamer.display.DisplayBlockEntity;
 import fr.theorozier.webstreamer.display.source.DisplaySource;
 import fr.theorozier.webstreamer.display.source.RawDisplaySource;
 import fr.theorozier.webstreamer.display.source.TwitchDisplaySource;
-import fr.theorozier.webstreamer.util.AsyncProcess;
+import fr.theorozier.webstreamer.util.AsyncProcessor;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.minecraft.client.gui.Drawable;
@@ -242,7 +242,7 @@ public class DisplayBlockScreen extends Screen {
 
         private TextFieldWidget urlField;
 
-        private final AsyncProcess<String, URL, MalformedURLException> asyncUrl = new AsyncProcess<>(URL::new);
+        private final AsyncProcessor<String, URL, MalformedURLException> asyncUrl = new AsyncProcessor<>(URL::new);
 
         RawSourceScreen(RawDisplaySource source) {
             super(source);
@@ -254,7 +254,7 @@ public class DisplayBlockScreen extends Screen {
 
         @Override
         public boolean valid() {
-            return !this.asyncUrl.active();
+            return this.asyncUrl.idle();
         }
 
         @Override
@@ -300,7 +300,7 @@ public class DisplayBlockScreen extends Screen {
         private TextFieldWidget channelField;
         private QualitySliderWidget qualitySlider;
 
-        private final AsyncProcess<String, TwitchDisplaySource.Playlist, TwitchDisplaySource.PlaylistException> asyncPlaylist = new AsyncProcess<>(TwitchDisplaySource::requestPlaylist);
+        private final AsyncProcessor<String, TwitchDisplaySource.Playlist, TwitchDisplaySource.PlaylistException> asyncPlaylist = new AsyncProcessor<>(TwitchDisplaySource::requestPlaylist);
         private TwitchDisplaySource.Playlist playlist;
         private Text playlistError;
 
@@ -314,7 +314,7 @@ public class DisplayBlockScreen extends Screen {
 
         @Override
         public boolean valid() {
-            return !this.asyncPlaylist.active();
+            return this.asyncPlaylist.idle();
         }
 
         @Override
@@ -383,7 +383,7 @@ public class DisplayBlockScreen extends Screen {
             if (quality == null) {
                 this.source.clearChannelAndUrl();
             } else if (this.playlist != null) {
-                this.source.setChannelAndUrl(this.playlist.getChannel(), quality.url());
+                this.source.setChannelAndUrl(this.playlist.getChannel(), quality.name(), quality.url());
             }
         }
 
