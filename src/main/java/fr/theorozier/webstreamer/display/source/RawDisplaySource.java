@@ -4,22 +4,22 @@ import net.minecraft.nbt.NbtCompound;
 import net.minecraft.nbt.NbtString;
 
 import java.net.MalformedURLException;
-import java.net.URL;
+import java.net.URI;
 
 public class RawDisplaySource implements DisplaySource {
 
     public static final String TYPE = "raw";
     
-    private URL url;
+    private URI uri;
 
     public RawDisplaySource(RawDisplaySource copy) {
-        this.url = copy.url;
+        this.uri = copy.uri;
     }
     
     public RawDisplaySource() { }
     
-    public void setUrl(URL url) {
-        this.url = url;
+    public void setUri(URI uri) {
+        this.uri = uri;
     }
     
     @Override
@@ -28,14 +28,14 @@ public class RawDisplaySource implements DisplaySource {
     }
     
     @Override
-    public URL getUrl() {
-        return this.url;
+    public URI getUri() {
+        return this.uri;
     }
     
     @Override
     public void writeNbt(NbtCompound nbt) {
-        if (this.url != null) {
-            nbt.putString("url", this.url.toString());
+        if (this.uri != null) {
+            nbt.putString("url", this.uri.toString());
         }
     }
     
@@ -43,8 +43,8 @@ public class RawDisplaySource implements DisplaySource {
     public void readNbt(NbtCompound nbt) {
         if (nbt.get("url") instanceof NbtString nbtRaw) {
             try {
-                this.url = new URL(nbtRaw.asString());
-            } catch (MalformedURLException e) {
+                this.uri = URI.create(nbtRaw.asString());
+            } catch (IllegalArgumentException e) {
                 e.printStackTrace();
             }
         }

@@ -2,6 +2,7 @@ package fr.theorozier.webstreamer.display.render;
 
 import com.mojang.blaze3d.systems.RenderSystem;
 import fr.theorozier.webstreamer.display.client.DisplayUrl;
+import fr.theorozier.webstreamer.util.AsyncProcessor;
 import io.lindstrom.m3u8.model.MediaPlaylist;
 import io.lindstrom.m3u8.model.MediaSegment;
 import io.lindstrom.m3u8.parser.MediaPlaylistParser;
@@ -17,11 +18,16 @@ import org.bytedeco.javacv.Frame;
 import org.lwjgl.opengl.GL11;
 
 import java.io.IOException;
+import java.net.URI;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.time.Duration;
 import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
+import java.util.stream.Stream;
 
 /**
  * There is only instance of this class per source.
@@ -39,10 +45,12 @@ public class DisplayLayer extends RenderLayer {
 	private static final long GRABBER_REQUEST_TIMEOUT = 10L * 1000000000L;
 	/** Interval of internal cleanups (unused grabbers). */
 	private static final long CLEANUP_INTERVAL = 10L * 1000000000L;
+	/** Interval of playlist requests when a past request has failed, to avoid spamming. */
+	private static final long FAILING_PLAYLIST_INTERVAL = 5L * 1000000000L;
 
     private static class Inner {
 
-		private final DisplayLayerPools pools;
+		private final DisplayLayerResources res;
 		
         private final DisplayUrl url;
         private final DisplayTexture tex;
@@ -53,15 +61,18 @@ public class DisplayLayer extends RenderLayer {
 	    private long lastFetch = 0;
 	
 	    // Playlist //
-	
+
+		/** The asynchronous processor */
+		private final AsyncProcessor<URI, MediaPlaylist, IOException> asyncPlaylist;
+		private long playlistNextRequestTimestamp;
 	    /** Segments from the current playlist. */
-	    private List<MediaSegment> playlistSegments = null;
+	    private List<MediaSegment> playlistSegments;
 	    /** Segment offset of the current playlist. */
-	    private int playlistOffset = 0;
-		/** Future of the current playlist request. */
-	    private Future<MediaPlaylist> playlistRequestFuture = null;
+	    private int playlistOffset;
 		/** Last segment index observed when the last playlist request was done. */
-		private int playlistRequestLastSegmentIndex = -1;
+		private int playlistRequestLastSegmentIndex;
+		// /** Future of the current playlist request. */
+	    // private Future<MediaPlaylist> playlistRequestFuture = null;
 		
 		// Segment //
 	    
@@ -117,19 +128,21 @@ public class DisplayLayer extends RenderLayer {
 		/** Time in nanoseconds (monotonic) of the last internal cleanup. */
 		private long lastCleanup = 0;
 
-        Inner(DisplayLayerPools pools, DisplayUrl url) {
+        Inner(DisplayLayerResources res, DisplayUrl url) {
 
-			this.pools = pools;
+			this.res = res;
 			
             this.url = url;
             this.tex = new DisplayTexture();
             
             this.hlsParser = new MediaPlaylistParser(ParsingMode.LENIENT);
-			
+			this.asyncPlaylist = new AsyncProcessor<>(this::requestPlaylistBlocking, true);
 			this.soundSource = new DisplaySoundSource();
 
+			this.resetPlaylist();
+
 			System.out.println("Allocate DisplayLayer for " + this.url);
-    
+
         }
 
 		private void free() {
@@ -139,7 +152,7 @@ public class DisplayLayer extends RenderLayer {
 			this.tex.clearGlId();
 			this.soundSource.free();
 			for (FutureGrabber grabber : this.futureGrabbers.values()) {
-				this.pools.getExecutor().execute(grabber::waitAndStop);
+				this.res.getExecutor().execute(grabber::waitAndStop);
 			}
 			this.futureGrabbers.clear();
 
@@ -188,23 +201,52 @@ public class DisplayLayer extends RenderLayer {
 	    }
      
 		/** Internal blocking method to request the playlist. */
-        private MediaPlaylist requestPlaylistBlocking() throws IOException {
-            return this.hlsParser.readPlaylist(this.url.url().openStream());
+        private MediaPlaylist requestPlaylistBlocking(URI uri) throws IOException {
+			try {
+				HttpRequest request = HttpRequest.newBuilder(uri).GET().timeout(Duration.ofSeconds(5)).build();
+				HttpResponse<Stream<String>> res = this.res.getHttpClient()
+						.send(request, HttpResponse.BodyHandlers.ofLines());
+				if (res.statusCode() == 200) {
+					return this.hlsParser.readPlaylist(res.body().iterator());
+				} else {
+					throw new IOException("HTTP request failed, status code: " + res.statusCode());
+				}
+			} catch (InterruptedException e) {
+				throw new IOException(e);
+			}
         }
+
+		private void resetPlaylist() {
+			this.playlistSegments = null;
+			this.playlistNextRequestTimestamp = 0;
+			this.playlistRequestLastSegmentIndex = -1;
+		}
 		
 		/** Request the playlist if not already requesting and if this request is not pointless. */
 		private void requestPlaylist() {
 			int lastSegmentIndex = this.playlistSegments == null ? 0 : this.getLastSegmentIndex();
-			if (this.playlistRequestFuture == null && lastSegmentIndex > this.playlistRequestLastSegmentIndex) {
+			if (lastSegmentIndex > this.playlistRequestLastSegmentIndex) {
+				System.out.println("actually request playlist");
+				this.playlistRequestLastSegmentIndex = lastSegmentIndex;
+				this.asyncPlaylist.push(this.url.uri());
+			}
+			/*if (this.playlistRequestFuture == null && lastSegmentIndex > this.playlistRequestLastSegmentIndex) {
 				// System.out.println("=> Requesting playlist...");
 				this.playlistRequestFuture = this.pools.getExecutor().submit(this::requestPlaylistBlocking);
 				this.playlistRequestLastSegmentIndex = lastSegmentIndex;
-			}
+			}*/
 		}
 	
-	    /** @return True if the playlist is set and ready to be used. */
-		private boolean pullPlaylist() {
-			if (this.playlistRequestFuture != null && this.playlistRequestFuture.isDone()) {
+		private void fetchPlaylist() {
+			this.asyncPlaylist.fetch(this.res.getExecutor(), playlist -> {
+				this.playlistSegments = playlist.mediaSegments();
+				this.playlistOffset = (int) playlist.mediaSequence();
+			}, exc -> {
+				// If failing, put timestamp to retry later.
+				this.playlistNextRequestTimestamp = System.nanoTime() + FAILING_PLAYLIST_INTERVAL;
+				this.playlistRequestLastSegmentIndex = -1;
+			});
+			/*if (this.playlistRequestFuture != null && this.playlistRequestFuture.isDone()) {
 				try {
 					MediaPlaylist playlist = this.playlistRequestFuture.get();
 					this.playlistSegments = playlist.mediaSegments();
@@ -220,7 +262,7 @@ public class DisplayLayer extends RenderLayer {
 				this.playlistRequestFuture = null;
 				this.playlistRequestLastSegmentIndex = -1;
 			}
-			return false;
+			return false;*/
 		}
 		
 		// Grabber //
@@ -230,7 +272,7 @@ public class DisplayLayer extends RenderLayer {
 			while (it.hasNext()) {
 				FutureGrabber item = it.next();
 				if (item.isTimedOut(now)) {
-					this.pools.getExecutor().execute(item::waitAndStop);
+					this.res.getExecutor().execute(item::waitAndStop);
 					it.remove();
 				}
 			}
@@ -241,8 +283,8 @@ public class DisplayLayer extends RenderLayer {
 			if (seg != null) {
 				this.futureGrabbers.computeIfAbsent(index, index0 -> {
 					// System.out.println("=> Request grabber for segment " + index0 + "/" + this.getLastSegmentIndex());
-					return new FutureGrabber(this.pools.getExecutor().submit(() -> {
-						FrameGrabber grabber = new FrameGrabber(this.pools, this.url.getContextUrl(seg.uri()).toURI());
+					return new FutureGrabber(this.res.getExecutor().submit(() -> {
+						FrameGrabber grabber = new FrameGrabber(this.res, this.url.getContextUri(seg.uri()));
 						grabber.start();
 						return grabber;
 					}), System.nanoTime());
@@ -282,14 +324,14 @@ public class DisplayLayer extends RenderLayer {
 					this.grabber.grabRemaining();
 					this.grabber.grabAudioAndUpload(this.soundSource);
 				}
-				this.pools.getExecutor().execute(this.grabber::stop);
+				this.res.getExecutor().execute(this.grabber::stop);
 				this.grabber = null;
 			}
 		}
 	
         private void fetch() throws IOException {
             
-			// The speed factor can be adjusted by various elements.
+			/*// The speed factor can be adjusted by various elements.
 			double speedFactor = 1.0;
 			
 			if (this.segmentIndex == this.playlistOffset) {
@@ -297,16 +339,16 @@ public class DisplayLayer extends RenderLayer {
 				// If we are in the first segment, add a little speed factor in order to avoid
 				// getting out of the playlist.
 				speedFactor = 1.1;
-			}
+			}*/
 			
             long currentTime = System.nanoTime();
-            double elapsedTime = ((double) (currentTime - this.lastFetch) / 1000000000.0) * speedFactor;
+            double elapsedTime = ((double) (currentTime - this.lastFetch) / 1000000000.0); // * speedFactor;
             this.lastFetch = currentTime;
-	
-            if (this.segmentIndex != -1) {
+
+			if (this.playlistSegments != null) {
 	
 				// Tries to pull the playlist if being requested.
-	            this.pullPlaylist();
+	            this.fetchPlaylist();
 				
 				// This algorithm tries to go forward in segments by elapsedTime.
 				double remainingTime = elapsedTime;
@@ -315,8 +357,7 @@ public class DisplayLayer extends RenderLayer {
 					
 					// If we are too slow and the current segment is now out of the playlist.
 					if (this.getCurrentSegment() == null) {
-						this.segmentIndex = -1;
-						this.playlistRequestLastSegmentIndex = -1;  // Temporary fix to avoid init infinite loop
+						this.resetPlaylist();
 						this.stopGrabber(true);
 						break;
 					}
@@ -324,16 +365,11 @@ public class DisplayLayer extends RenderLayer {
 					this.segmentTimestamp += remainingTime;
 					if (this.segmentTimestamp > this.segmentDuration) {
 
-						//System.out.println("Segment " + this.segmentIndex + "/" + this.getLastSegmentIndex() + " overflow...");
-						//System.out.println("=> Time " + this.segmentTimestamp + " > " + this.segmentDuration);
-
 						this.segmentIndex++;
 						MediaSegment seg = this.getCurrentSegment();
 						
 						if (seg == null) {
-							//System.out.println("=> Next segment is null, re-sync...");
-							this.segmentIndex = -1;
-							this.playlistRequestLastSegmentIndex = -1;  // Temporary fix to avoid init infinite loop
+							this.resetPlaylist();
 							this.stopGrabber(true);
 							break;
 						}
@@ -364,15 +400,25 @@ public class DisplayLayer extends RenderLayer {
 	
             }
 	
-	        if (this.segmentIndex == -1) {
-		
-		        if (!this.pullPlaylist()) {
+	        if (this.playlistSegments == null) {
+
+				if (this.playlistNextRequestTimestamp < 0) {
+					// After request, we go here.
+					this.fetchPlaylist();
+					if (this.playlistSegments == null)
+						return;
+				} else if (currentTime >= this.playlistNextRequestTimestamp) {
+					// In first place with fall here after resetPlaylist()
+					this.playlistNextRequestTimestamp = -1;
 					this.requestPlaylist();
-			        return;
-		        }
-		        
-		        double totalDuration = 0.0;
-		        for (MediaSegment seg : this.playlistSegments) {
+					return;
+				} else {
+					// If there is no current request or if the current time is too early, just return.
+					return;
+				}
+
+				double totalDuration = 0.0;
+				for (MediaSegment seg : this.playlistSegments) {
 			        totalDuration += seg.duration();
 		        }
 		
@@ -456,9 +502,9 @@ public class DisplayLayer extends RenderLayer {
 	
 	private final Inner inner;
 
-    public DisplayLayer(DisplayLayerPools pools, DisplayUrl url) {
+    public DisplayLayer(DisplayLayerResources res, DisplayUrl url) {
 		// We are using an inner class just for the "super" call to be first.
-        this(new Inner(pools, url));
+        this(new Inner(res, url));
     }
 
     private DisplayLayer(Inner inner) {

@@ -1,7 +1,7 @@
 package fr.theorozier.webstreamer.playlist;
 
-import java.net.URL;
+import java.net.URI;
 
-public record PlaylistQuality(String name, URL url) {
+public record PlaylistQuality(String name, URI uri) {
 	
 }

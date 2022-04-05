@@ -20,7 +20,7 @@ public class DisplayLayerManager {
     private final Int2ObjectOpenHashMap<DisplayLayer> layers = new Int2ObjectOpenHashMap<>();
     
     /** Common pools for shared and reusable heavy buffers. */
-    private final DisplayLayerPools pools = new DisplayLayerPools();
+    private final DisplayLayerResources res = new DisplayLayerResources();
 
     /** Time in nanoseconds (monotonic) of the last cleanup for unused layers. */
     private long lastCleanup = 0;
@@ -31,7 +31,7 @@ public class DisplayLayerManager {
             if (this.layers.size() >= MAX_LAYERS_COUNT) {
                 return null;
             }
-            layer = new DisplayLayer(this.pools, url);
+            layer = new DisplayLayer(this.res, url);
             this.layers.put(url.id(), layer);
         }
         return layer;

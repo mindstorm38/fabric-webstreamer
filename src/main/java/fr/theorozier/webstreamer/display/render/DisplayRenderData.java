@@ -7,7 +7,7 @@ import fr.theorozier.webstreamer.display.source.DisplaySource;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 
-import java.net.URL;
+import java.net.URI;
 
 @Environment(EnvType.CLIENT)
 public class DisplayRenderData {
@@ -32,9 +32,9 @@ public class DisplayRenderData {
 		if (source != this.lastSource) {
 			this.lastSource = source;
 			this.url = null;
-			URL rawUrl = source.getUrl();
-			if (rawUrl != null) {
-				this.url = new DisplayUrl(rawUrl, WebStreamerClientMod.DISPLAY_URLS.allocUrl(rawUrl));
+			URI rawUri = source.getUri();
+			if (rawUri != null) {
+				this.url = new DisplayUrl(rawUri, WebStreamerClientMod.DISPLAY_URLS.allocUri(rawUri));
 			}
 		}
 		return this.url;

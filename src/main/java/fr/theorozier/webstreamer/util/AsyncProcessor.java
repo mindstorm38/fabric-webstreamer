@@ -1,5 +1,6 @@
 package fr.theorozier.webstreamer.util;
 
+import java.util.Objects;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -16,13 +17,19 @@ import java.util.function.Consumer;
 public class AsyncProcessor<FROM, TO, EXC extends Exception> {
 
     private final Converter<FROM, TO, EXC> converter;
+    private final boolean allowDuplicates;
 
     private FROM pending;
     private boolean submitted;
     private Future<TO> future;
 
-    public AsyncProcessor(Converter<FROM, TO, EXC> converter) {
+    public AsyncProcessor(Converter<FROM, TO, EXC> converter, boolean allowDuplicates) {
         this.converter = converter;
+        this.allowDuplicates = allowDuplicates;
+    }
+
+    public AsyncProcessor(Converter<FROM, TO, EXC> converter) {
+        this(converter, false);
     }
 
     @SuppressWarnings("unchecked")
@@ -53,7 +60,7 @@ public class AsyncProcessor<FROM, TO, EXC extends Exception> {
     }
 
     public void push(FROM from) {
-        if (!from.equals(this.pending)) {
+        if (this.allowDuplicates || !Objects.equals(from, this.pending)) {
             this.pending = from;
             this.submitted = false;
         }

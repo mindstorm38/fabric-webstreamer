@@ -2,13 +2,13 @@ package fr.theorozier.webstreamer.display.source;
 
 import net.minecraft.nbt.NbtCompound;
 
-import java.net.URL;
+import java.net.URI;
 
 public interface DisplaySource {
 
     String getType();
     
-    URL getUrl();
+    URI getUri();
     
     void writeNbt(NbtCompound nbt);
     

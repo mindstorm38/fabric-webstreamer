@@ -28,7 +28,7 @@ import java.util.concurrent.Flow;
 @Environment(EnvType.CLIENT)
 public class FrameGrabber {
 
-	private final DisplayLayerPools pools;
+	private final DisplayLayerResources pools;
 	private final URI uri;
 	
 	private ByteBuffer buffer;
@@ -54,7 +54,7 @@ public class FrameGrabber {
 		}
 	}
 	
-	public FrameGrabber(DisplayLayerPools pools, URI uri) {
+	public FrameGrabber(DisplayLayerResources pools, URI uri) {
 		this.pools = pools;
 		this.uri = uri;
 	}

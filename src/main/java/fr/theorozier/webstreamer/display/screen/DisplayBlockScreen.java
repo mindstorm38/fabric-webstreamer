@@ -12,7 +12,6 @@ import fr.theorozier.webstreamer.twitch.TwitchClient;
 import fr.theorozier.webstreamer.util.AsyncProcessor;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.gui.Drawable;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.screen.ScreenTexts;
@@ -26,8 +25,7 @@ import net.minecraft.text.LiteralText;
 import net.minecraft.text.Text;
 import net.minecraft.text.TranslatableText;
 
-import java.net.MalformedURLException;
-import java.net.URL;
+import java.net.URI;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.*;
@@ -249,7 +247,7 @@ public class DisplayBlockScreen extends Screen {
 
         private TextFieldWidget urlField;
 
-        private final AsyncProcessor<String, URL, MalformedURLException> asyncUrl = new AsyncProcessor<>(URL::new);
+        private final AsyncProcessor<String, URI, IllegalArgumentException> asyncUrl = new AsyncProcessor<>(URI::create);
 
         RawSourceScreen(RawDisplaySource source) {
             super(source);
@@ -277,7 +275,7 @@ public class DisplayBlockScreen extends Screen {
             addDrawableChild(this.urlField);
 
             if (first) {
-                this.urlField.setText(Objects.toString(this.source.getUrl(), ""));
+                this.urlField.setText(Objects.toString(this.source.getUri(), ""));
             }
 
         }
@@ -285,7 +283,7 @@ public class DisplayBlockScreen extends Screen {
         @Override
         public void render(MatrixStack matrices, int mouseX, int mouseY, float delta) {
             drawTextWithShadow(matrices, textRenderer, URL_TEXT, xHalf - 154, ySourceTop, 0xA0A0A0);
-            if (this.source.getUrl() == null) {
+            if (this.source.getUri() == null) {
                 drawCenteredText(matrices, textRenderer, MALFORMED_URL_TEXT, xHalf, ySourceTop + 50, 0xFF6052);
             }
         }
@@ -293,7 +291,7 @@ public class DisplayBlockScreen extends Screen {
         @Override
         public void tick() {
             this.urlField.tick();
-            this.asyncUrl.fetch(executor, this.source::setUrl, exc -> this.source.setUrl(null));
+            this.asyncUrl.fetch(executor, this.source::setUri, exc -> this.source.setUri(null));
         }
 
         private void onUrlChanged(String rawUrl) {

@@ -17,10 +17,11 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Different pool types given to {@link DisplayLayer} as a centralized way of getting
- * access to heavy heap buffers. This also provides a thread pool executor.
+ * access to heavy heap buffers. This also provides a thread pool executor and an HTTP
+ * client.
  */
 @Environment(EnvType.CLIENT)
-public class DisplayLayerPools {
+public class DisplayLayerResources {
 	
 	private final ExecutorService executor = Executors.newFixedThreadPool(2, new ThreadFactory() {
 		private final AtomicInteger counter = new AtomicInteger();

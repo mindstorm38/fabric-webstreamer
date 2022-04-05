@@ -43,7 +43,7 @@ public class TwitchClient {
 			throw new PlaylistException(PlaylistExceptionType.CHANNEL_NOT_FOUND);
 		}
 		
-		URI gqlUri = new URL("https://gql.twitch.tv/gql").toURI();
+		URI gqlUri = new URI("https://gql.twitch.tv/gql");
 		
 		HttpClient client = HttpClient.newHttpClient();
 		
@@ -115,7 +115,7 @@ public class TwitchClient {
 			int qualityNameStartIdx = line2.indexOf("NAME=\"");
 			int qualityNameStopIdx = line2.indexOf('"', qualityNameStartIdx + 6);
 			String qualityName = line2.substring(qualityNameStartIdx + 6, qualityNameStopIdx);
-			playlist.addQuality(new PlaylistQuality(qualityName, new URL(line0)));
+			playlist.addQuality(new PlaylistQuality(qualityName, new URI(line0)));
 		}
 		
 		return playlist;
