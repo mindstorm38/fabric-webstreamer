@@ -222,7 +222,6 @@ public class DisplayLayer extends RenderLayer {
 		private void requestPlaylist() {
 			int lastSegmentIndex = this.playlistSegments == null ? 0 : this.getLastSegmentIndex();
 			if (lastSegmentIndex > this.playlistRequestLastSegmentIndex) {
-				System.out.println("actually request playlist");
 				this.playlistRequestLastSegmentIndex = lastSegmentIndex;
 				this.asyncPlaylist.push(this.url.uri());
 			}
@@ -418,7 +417,7 @@ public class DisplayLayer extends RenderLayer {
 
 			if (this.firstGrabber) {
 				this.firstGrabber = false;
-				System.out.println("skip audio before " + this.segmentTimestamp);
+				// System.out.println("skip audio before " + this.segmentTimestamp);
 				this.grabber.skipAudioBufferBefore(segmentTimestampMicros);
 			}
 
