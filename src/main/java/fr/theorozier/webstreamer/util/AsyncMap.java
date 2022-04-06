@@ -94,6 +94,7 @@ public class AsyncMap<FROM, TO, EXC extends Exception> {
         while (it.hasNext()) {
             TimedFuture<TO> item = it.next();
             if (item.isTimedOut(now)) {
+                System.out.println("Cleaning up timed out future: " + item);
                 executor.execute(() -> {
                     try {
                         this.cleanup.accept(item.future.get());
