@@ -19,6 +19,7 @@ repositories {
 }
 
 dependencies {
+
 	// To change the versions see the gradle.properties file
 	minecraft "com.mojang:minecraft:${project.minecraft_version}"
 	mappings "net.fabricmc:yarn:${project.yarn_mappings}:v2"
@@ -26,8 +27,25 @@ dependencies {
 
 	// Fabric API. This is technically optional, but you probably want it anyway.
 	modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
-    implementation "io.lindstrom:m3u8-parser:0.22"
-	implementation "org.bytedeco:javacv-platform:1.5.7"
+
+	implementation "io.lindstrom:m3u8-parser:${project.m3u8_parser_version}"
+	implementation "org.bytedeco:javacv:${project.javacv_version}"
+
+	include "io.lindstrom:m3u8-parser:${project.m3u8_parser_version}"
+	include "org.bytedeco:javacv:${project.javacv_version}"
+	include "org.bytedeco:javacpp:${project.javacv_version}"
+	include "org.bytedeco:javacpp:${project.javacv_version}:linux-arm64"
+	include "org.bytedeco:javacpp:${project.javacv_version}:linux-x86_64"
+	include "org.bytedeco:javacpp:${project.javacv_version}:macosx-arm64"
+	include "org.bytedeco:javacpp:${project.javacv_version}:macosx-x86_64"
+	include "org.bytedeco:javacpp:${project.javacv_version}:windows-x86_64"
+	include "org.bytedeco:ffmpeg:5.0-${project.javacv_version}"
+	include "org.bytedeco:ffmpeg:5.0-${project.javacv_version}:linux-arm64"
+	include "org.bytedeco:ffmpeg:5.0-${project.javacv_version}:linux-x86_64"
+	include "org.bytedeco:ffmpeg:5.0-${project.javacv_version}:macosx-arm64"
+	include "org.bytedeco:ffmpeg:5.0-${project.javacv_version}:macosx-x86_64"
+	include "org.bytedeco:ffmpeg:5.0-${project.javacv_version}:windows-x86_64"
+
 }
 
 processResources {
