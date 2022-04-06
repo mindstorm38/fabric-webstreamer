@@ -8,7 +8,8 @@ import java.util.concurrent.Future;
 import java.util.function.Consumer;
 
 /**
- * A utility for asynchronously process data, using an executor and a future.
+ * <p>A utility for asynchronously process data, using an executor and a future.</p>
+ * <p>This class is not thread safe, you should call methods from one thread.</p>
  *
  * @param <FROM> Input type of the conversion.
  * @param <TO> Output type of the conversion.
@@ -33,18 +34,22 @@ public class AsyncProcessor<FROM, TO, EXC extends Exception> {
     }
 
     @SuppressWarnings("unchecked")
-    public void fetch(ExecutorService executor, Consumer<TO> success, Consumer<EXC> error) {
+    public void fetch(ExecutorService executor, Consumer<TO> onSuccess, Consumer<EXC> onError) {
 
         if (this.future != null && this.future.isDone()) {
+            // If the thread is already interrupted, return early to avoid
+            // InterruptedException in "Future::get".
+            if (Thread.interrupted())
+                return;
             try {
-                success.accept(this.future.get());
+                onSuccess.accept(this.future.get());
             } catch (InterruptedException | CancellationException e) {
                 // Cancel should not happen.
             } catch (ExecutionException ee) {
                 try {
-                    error.accept((EXC) ee.getCause());
+                    onError.accept((EXC) ee.getCause());
                 } catch (ClassCastException cce) {
-                    // Should not fail because of generic enforcement.
+                    // In case if runtime exceptions.
                 }
             } finally {
                 this.future = null;
@@ -71,11 +76,6 @@ public class AsyncProcessor<FROM, TO, EXC extends Exception> {
      */
     public boolean idle() {
         return this.future == null;
-    }
-
-    @FunctionalInterface
-    public interface Converter<FROM, TO, EXC extends Exception> {
-        TO convert(FROM from) throws EXC;
     }
 
 }

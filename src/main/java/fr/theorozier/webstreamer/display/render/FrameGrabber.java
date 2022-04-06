@@ -59,32 +59,28 @@ public class FrameGrabber {
 		this.uri = uri;
 	}
 
-	public void start() throws InterruptedException, IOException {
+	public void start() throws IOException {
 
 		if (this.grabber != null || this.buffer != null) {
 			throw new IllegalStateException("already started");
 		}
 		
 		try {
-	
-			HttpRequest req = HttpRequest.newBuilder(this.uri)
-					.GET()
-					.timeout(Duration.ofSeconds(1))
-					.build();
-			
+
+			HttpRequest req = HttpRequest.newBuilder(this.uri).GET().timeout(Duration.ofSeconds(1)).build();
 			this.buffer = this.pools.allocRawFileBuffer();
 			this.pools.getHttpClient().send(req, info -> new BufferResponseSubscriber(this.buffer));
 			ByteArrayInputStream grabberStream = new ByteArrayInputStream(this.buffer.array(), this.buffer.position(), this.buffer.remaining());
-			
+
 			this.grabber = new FFmpegFrameGrabber(grabberStream);
 			this.grabber.startUnsafe();
-			
+
 			this.tempAudioBuffer = this.pools.allocSoundBuffer();
-		
+
 			this.refTimestamp = 0L;
 			this.deltaTimestamp = 0L;
 			this.lastFrame = null;
-		
+
 			Frame frame;
 			while ((frame = this.grabber.grab()) != null) {
 				if (frame.image != null) {
@@ -99,13 +95,31 @@ public class FrameGrabber {
 					this.pushAudioBuffer(frame);
 				}
 			}
-		
-		} catch (InterruptedException | IOException | RuntimeException e) {
+
+		} catch (IOException | InterruptedException | RuntimeException e) {
+
+			if (this.grabber != null) {
+				this.grabber.releaseUnsafe();
+			}
+
 			if (this.buffer != null) {
 				this.pools.freeRawFileBuffer(this.buffer);
 				this.buffer = null;
 			}
-			throw e;
+
+			if (this.tempAudioBuffer != null) {
+				this.pools.freeSoundBuffer(this.tempAudioBuffer);
+				this.tempAudioBuffer = null;
+			}
+
+			if (e instanceof InterruptedException) {
+				throw new IOException(e);
+			} else if (e instanceof IOException) {
+				throw (IOException) e;
+			} else {
+				throw (RuntimeException) e;
+			}
+
 		}
 
 	}

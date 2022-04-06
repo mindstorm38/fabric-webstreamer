@@ -2,12 +2,12 @@ package fr.theorozier.webstreamer.display.render;
 
 import com.mojang.blaze3d.systems.RenderSystem;
 import fr.theorozier.webstreamer.display.client.DisplayUrl;
+import fr.theorozier.webstreamer.util.AsyncMap;
 import fr.theorozier.webstreamer.util.AsyncProcessor;
 import io.lindstrom.m3u8.model.MediaPlaylist;
 import io.lindstrom.m3u8.model.MediaSegment;
 import io.lindstrom.m3u8.parser.MediaPlaylistParser;
 import io.lindstrom.m3u8.parser.ParsingMode;
-import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.minecraft.client.render.RenderLayer;
@@ -22,11 +22,7 @@ import java.net.URI;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
-import java.util.Iterator;
 import java.util.List;
-import java.util.concurrent.CancellationException;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Future;
 import java.util.stream.Stream;
 
 /**
@@ -91,29 +87,31 @@ public class DisplayLayer extends RenderLayer {
 		/** True if this is the first grabber after an initialisation. */
 		private boolean firstGrabber;
 
-		/** A tuple of future and the time it was created at, used to cleanup timed out grabbers. */
-		private record FutureGrabber(Future<FrameGrabber> future, long time) {
+		private final AsyncMap<URI, FrameGrabber, IOException> asyncGrabbers;
 
-			/**
-			 * Wait for the future and stop the grabber directly.
-			 */
-			void waitAndStop() {
-				try {
-					this.future.get().stop();
-				} catch (Exception ignored) { }
-			}
-
-			boolean isTimedOut(long now) {
-				return now - this.time >= GRABBER_REQUEST_TIMEOUT;
-			}
-
-		}
-
-		/**
-		 * Map of future grabbers for future mapped to future segments. Ultimately,
-		 * they might be unused and the cleanup is made for such cases.
-		 */
-	    private final Int2ObjectOpenHashMap<FutureGrabber> futureGrabbers = new Int2ObjectOpenHashMap<>();
+//		/** A tuple of future and the time it was created at, used to clean up timed out grabbers. */
+//		private record FutureGrabber(Future<FrameGrabber> future, long time) {
+//
+//			/**
+//			 * Wait for the future and stop the grabber directly.
+//			 */
+//			void waitAndStop() {
+//				try {
+//					this.future.get().stop();
+//				} catch (Exception ignored) { }
+//			}
+//
+//			boolean isTimedOut(long now) {
+//				return now - this.time >= GRABBER_REQUEST_TIMEOUT;
+//			}
+//
+//		}
+//
+//		/**
+//		 * Map of future grabbers for future mapped to future segments. Ultimately,
+//		 * they might be unused and the cleanup is made for such cases.
+//		 */
+//	    private final Int2ObjectOpenHashMap<FutureGrabber> futureGrabbers = new Int2ObjectOpenHashMap<>();
 		
 		// Sound //
 		/** The sound source. */
@@ -134,9 +132,10 @@ public class DisplayLayer extends RenderLayer {
 			
             this.url = url;
             this.tex = new DisplayTexture();
-            
+
             this.hlsParser = new MediaPlaylistParser(ParsingMode.LENIENT);
 			this.asyncPlaylist = new AsyncProcessor<>(this::requestPlaylistBlocking, true);
+			this.asyncGrabbers = new AsyncMap<>(this::requestGrabberBlocking, FrameGrabber::stop, GRABBER_REQUEST_TIMEOUT);
 			this.soundSource = new DisplaySoundSource();
 
 			this.resetPlaylist();
@@ -150,11 +149,8 @@ public class DisplayLayer extends RenderLayer {
 			System.out.println("Free DisplayLayer for " + this.url);
 
 			this.tex.clearGlId();
+			this.asyncGrabbers.cleanup(this.res.getExecutor());
 			this.soundSource.free();
-			for (FutureGrabber grabber : this.futureGrabbers.values()) {
-				this.res.getExecutor().execute(grabber::waitAndStop);
-			}
-			this.futureGrabbers.clear();
 
 		}
 
@@ -230,11 +226,6 @@ public class DisplayLayer extends RenderLayer {
 				this.playlistRequestLastSegmentIndex = lastSegmentIndex;
 				this.asyncPlaylist.push(this.url.uri());
 			}
-			/*if (this.playlistRequestFuture == null && lastSegmentIndex > this.playlistRequestLastSegmentIndex) {
-				// System.out.println("=> Requesting playlist...");
-				this.playlistRequestFuture = this.pools.getExecutor().submit(this::requestPlaylistBlocking);
-				this.playlistRequestLastSegmentIndex = lastSegmentIndex;
-			}*/
 		}
 	
 		private void fetchPlaylist() {
@@ -246,83 +237,45 @@ public class DisplayLayer extends RenderLayer {
 				this.playlistNextRequestTimestamp = System.nanoTime() + FAILING_PLAYLIST_INTERVAL;
 				this.playlistRequestLastSegmentIndex = -1;
 			});
-			/*if (this.playlistRequestFuture != null && this.playlistRequestFuture.isDone()) {
-				try {
-					MediaPlaylist playlist = this.playlistRequestFuture.get();
-					this.playlistSegments = playlist.mediaSegments();
-					this.playlistOffset = (int) playlist.mediaSequence();
-					this.playlistRequestFuture = null;
-					return true;
-				} catch (InterruptedException e) {
-					return false; // Do nothing else to allow retry.
-				} catch (ExecutionException e) {
-					// Go to return FAILED
-					e.printStackTrace();
-				} catch (CancellationException ignored) {}
-				this.playlistRequestFuture = null;
-				this.playlistRequestLastSegmentIndex = -1;
-			}
-			return false;*/
 		}
 		
 		// Grabber //
-	    
-		private void cleanupUnusedGrabbers(long now) {
-			Iterator<FutureGrabber> it = this.futureGrabbers.values().iterator();
-			while (it.hasNext()) {
-				FutureGrabber item = it.next();
-				if (item.isTimedOut(now)) {
-					this.res.getExecutor().execute(item::waitAndStop);
-					it.remove();
-				}
-			}
+
+		private FrameGrabber requestGrabberBlocking(URI uri) throws IOException {
+			FrameGrabber grabber = new FrameGrabber(this.res, uri);
+			grabber.start();
+			return grabber;
 		}
 		
 		private void requestGrabber(int index) {
 			MediaSegment seg = this.getSegment(index);
 			if (seg != null) {
-				this.futureGrabbers.computeIfAbsent(index, index0 -> {
-					// System.out.println("=> Request grabber for segment " + index0 + "/" + this.getLastSegmentIndex());
-					return new FutureGrabber(this.res.getExecutor().submit(() -> {
-						FrameGrabber grabber = new FrameGrabber(this.res, this.url.getContextUri(seg.uri()));
-						grabber.start();
-						return grabber;
-					}), System.nanoTime());
-				});
+				this.asyncGrabbers.push(this.res.getExecutor(), this.url.getContextUri(seg.uri()), index);
 			}
-		}
-		
-		private boolean pullGrabberAndUse(int index) throws IOException {
-			FutureGrabber futureGrabber = this.futureGrabbers.get(index);
-			if (futureGrabber != null) {
-				Future<FrameGrabber> future = futureGrabber.future;
-				if (future.isDone()) {
-					try {
-						FrameGrabber grabber = future.get();
-						this.stopGrabber(true);
-						this.grabber = grabber;
-						// This grabber should have been started by the task.
-						this.futureGrabbers.remove(index);
-						return true;
-					} catch (InterruptedException e) {
-						return false; // Do nothing else to allow retry.
-					} catch (ExecutionException e) {
-						e.printStackTrace();
-						// Go next to remove.
-					} catch (CancellationException ignored) {}
-					this.futureGrabbers.remove(index);
-				}
-			} else {
-				this.requestGrabber(index);
-			}
-			return false;
 		}
 
-		private void stopGrabber(boolean grabRemaining) throws IOException {
+		/**
+		 * Try to pull the given grabber, requested if not already.
+		 * @param index The segment index to pull.
+		 */
+		private void pullGrabberAndUse(int index) {
+			boolean requested = this.asyncGrabbers.pull(index, grabber -> {
+				this.grabber = grabber;
+			}, Throwable::printStackTrace);
+			if (!requested) {
+				this.requestGrabber(index);
+			}
+		}
+
+		private void stopGrabber(boolean grabRemaining) {
 			if (this.grabber != null) {
 				if (grabRemaining) {
-					this.grabber.grabRemaining();
-					this.grabber.grabAudioAndUpload(this.soundSource);
+					try {
+						this.grabber.grabRemaining();
+						this.grabber.grabAudioAndUpload(this.soundSource);
+					} catch (IOException e) {
+						e.printStackTrace();
+					}
 				}
 				this.res.getExecutor().execute(this.grabber::stop);
 				this.grabber = null;
@@ -330,19 +283,9 @@ public class DisplayLayer extends RenderLayer {
 		}
 	
         private void fetch() throws IOException {
-            
-			/*// The speed factor can be adjusted by various elements.
-			double speedFactor = 1.0;
-			
-			if (this.segmentIndex == this.playlistOffset) {
-				System.out.println("Fast forward enabled...");
-				// If we are in the first segment, add a little speed factor in order to avoid
-				// getting out of the playlist.
-				speedFactor = 1.1;
-			}*/
 			
             long currentTime = System.nanoTime();
-            double elapsedTime = ((double) (currentTime - this.lastFetch) / 1000000000.0); // * speedFactor;
+            double elapsedTime = ((double) (currentTime - this.lastFetch) / 1000000000.0);
             this.lastFetch = currentTime;
 
 			if (this.playlistSegments != null) {
@@ -460,7 +403,8 @@ public class DisplayLayer extends RenderLayer {
 	        }
 			
             if (this.grabber == null) {
-				if (!this.pullGrabberAndUse(this.segmentIndex)) {
+				this.pullGrabberAndUse(this.segmentIndex);
+				if (this.grabber == null) {
 					return;
 				}
             }
@@ -492,7 +436,7 @@ public class DisplayLayer extends RenderLayer {
 
 			long now = System.nanoTime();
 			if (now - this.lastCleanup >= CLEANUP_INTERVAL) {
-				this.cleanupUnusedGrabbers(now);
+				this.asyncGrabbers.cleanupTimedOut(this.res.getExecutor(), now);
 				this.lastCleanup = now;
 			}
 	
