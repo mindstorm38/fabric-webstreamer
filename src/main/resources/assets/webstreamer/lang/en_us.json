@@ -1,4 +1,5 @@
 {
+  "block.webstreamer.display": "Web Display",
   "gui.webstreamer.display.conf": "Display configuration",
   "gui.webstreamer.display.width": "Width",
   "gui.webstreamer.display.height": "Height",
