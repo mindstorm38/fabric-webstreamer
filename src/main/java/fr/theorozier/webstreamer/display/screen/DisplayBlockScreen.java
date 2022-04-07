@@ -176,7 +176,7 @@ public class DisplayBlockScreen extends Screen {
             if (this.sourceScreen != null) {
                 this.blockEntity.setSource(this.sourceScreen.source);
             }
-            DisplayNetworking.Client.sendDisplayUpdate(this.blockEntity);
+            DisplayNetworking.sendDisplayUpdate(this.blockEntity);
         }
         this.close();
     }

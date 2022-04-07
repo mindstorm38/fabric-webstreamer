@@ -16,11 +16,10 @@ import net.minecraft.util.shape.VoxelShape;
 import net.minecraft.util.shape.VoxelShapes;
 import net.minecraft.world.BlockView;
 import net.minecraft.world.World;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 public class DisplayBlock extends BlockWithEntity {
-
-    public static final int PERMISSION_LEVEL = 2;
     
     private static final VoxelShape SHAPE_NORTH = VoxelShapes.cuboid(0, 0, 0.9, 1, 1, 1);
     private static final VoxelShape SHAPE_SOUTH = VoxelShapes.cuboid(0, 0, 0, 1, 1, 0.1);
@@ -29,9 +28,9 @@ public class DisplayBlock extends BlockWithEntity {
     
     public DisplayBlock() {
         super(Settings.of(Material.GLASS)
-                .sounds(BlockSoundGroup.AMETHYST_BLOCK)
-                .breakInstantly()
-                .noCollision()
+                .sounds(BlockSoundGroup.GLASS)
+                .strength(0.3F)
+                .requiresTool()
                 .nonOpaque());
     }
     
@@ -75,12 +74,20 @@ public class DisplayBlock extends BlockWithEntity {
     @Override
     public ActionResult onUse(BlockState state, World world, BlockPos pos, PlayerEntity player, Hand hand, BlockHitResult hit) {
         BlockEntity be = world.getBlockEntity(pos);
-        if (player.hasPermissionLevel(PERMISSION_LEVEL) && be instanceof DisplayBlockEntity dbe && player instanceof DisplayBlockInteract interact) {
+        if (canUse(player) && be instanceof DisplayBlockEntity dbe && player instanceof DisplayBlockInteract interact) {
             interact.openDisplayBlockScreen(dbe);
-            return ActionResult.success(true);
+            return ActionResult.success(world.isClient);
         } else {
             return ActionResult.PASS;
         }
+    }
+    
+    public static boolean canPlace(@NotNull PlayerEntity player) {
+        return player.hasPermissionLevel(2);
+    }
+    
+    public static boolean canUse(@NotNull PlayerEntity player) {
+        return player.hasPermissionLevel(2);
     }
 
 }

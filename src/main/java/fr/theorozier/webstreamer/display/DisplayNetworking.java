@@ -36,39 +36,38 @@ public class DisplayNetworking {
 		consumer.accept(pos, nbt);
 	}
 	
+	/**
+	 * Client-side only, send a display update packet to the server.
+	 * @param blockEntity The display block entity.
+	 */
 	@Environment(EnvType.CLIENT)
-	public static class Client {
-		
-		public static void sendDisplayUpdate(DisplayBlockEntity blockEntity) {
-			ClientPlayNetworking.send(DISPLAY_BLOCK_UPDATE_PACKET_ID, encodeDisplayUpdatePacket(blockEntity));
-		}
-		
+	public static void sendDisplayUpdate(DisplayBlockEntity blockEntity) {
+		ClientPlayNetworking.send(DISPLAY_BLOCK_UPDATE_PACKET_ID, encodeDisplayUpdatePacket(blockEntity));
 	}
 	
-	public static class Server {
+	/**
+	 * Server-side (integrated or dedicated) display packet receiver.
+	 */
+	public static void registerDisplayUpdateReceiver() {
+		ServerPlayNetworking.registerGlobalReceiver(DISPLAY_BLOCK_UPDATE_PACKET_ID, new DisplayUpdateHandler());
+	}
+	
+	private static class DisplayUpdateHandler implements ServerPlayNetworking.PlayChannelHandler {
 		
-		public static void registerDisplayUpdateReceiver() {
-			ServerPlayNetworking.registerGlobalReceiver(DISPLAY_BLOCK_UPDATE_PACKET_ID, new DisplayUpdateHandler());
-		}
-		
-		private static class DisplayUpdateHandler implements ServerPlayNetworking.PlayChannelHandler {
-			
-			@Override
-			public void receive(MinecraftServer server, ServerPlayerEntity player, ServerPlayNetworkHandler handler, PacketByteBuf buf, PacketSender responseSender) {
-				if (player.hasPermissionLevel(DisplayBlock.PERMISSION_LEVEL)) {
-					decodeDisplayUpdatePacket(buf, (pos, nbt) -> {
-						ServerWorld world = player.getWorld();
-						world.getServer().executeSync(() -> {
-							if (world.getBlockEntity(pos) instanceof DisplayBlockEntity blockEntity) {
-								blockEntity.readNbt(nbt);
-								blockEntity.markDirty();
-							}
-						});
+		@Override
+		public void receive(MinecraftServer server, ServerPlayerEntity player, ServerPlayNetworkHandler handler, PacketByteBuf buf, PacketSender responseSender) {
+			if (DisplayBlock.canUse(player)) {
+				decodeDisplayUpdatePacket(buf, (pos, nbt) -> {
+					ServerWorld world = player.getWorld();
+					world.getServer().executeSync(() -> {
+						if (world.getBlockEntity(pos) instanceof DisplayBlockEntity blockEntity) {
+							blockEntity.readNbt(nbt);
+							blockEntity.markDirty();
+						}
 					});
-				}
+				});
 			}
 		}
-	
 	}
 	
 }
