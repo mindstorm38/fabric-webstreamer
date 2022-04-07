@@ -74,9 +74,13 @@ public class DisplayBlock extends BlockWithEntity {
     @Override
     public ActionResult onUse(BlockState state, World world, BlockPos pos, PlayerEntity player, Hand hand, BlockHitResult hit) {
         BlockEntity be = world.getBlockEntity(pos);
-        if (canUse(player) && be instanceof DisplayBlockEntity dbe && player instanceof DisplayBlockInteract interact) {
-            interact.openDisplayBlockScreen(dbe);
-            return ActionResult.success(world.isClient);
+        if (canUse(player) && be instanceof DisplayBlockEntity dbe) {
+            if (player instanceof DisplayBlockInteract interact) {
+                interact.openDisplayBlockScreen(dbe);
+                return ActionResult.success(world.isClient);
+            } else {
+                return ActionResult.CONSUME;
+            }
         } else {
             return ActionResult.PASS;
         }
