@@ -1,7 +1,6 @@
 package fr.theorozier.webstreamer;
 
-import fr.theorozier.webstreamer.display.DisplayNetworking;
-import fr.theorozier.webstreamer.display.client.DisplayUrlManager;
+import fr.theorozier.webstreamer.display.url.DisplayUrlManager;
 import fr.theorozier.webstreamer.twitch.TwitchClient;
 import fr.theorozier.webstreamer.display.render.DisplayBlockEntityRenderer;
 import fr.theorozier.webstreamer.display.render.DisplayLayerManager;

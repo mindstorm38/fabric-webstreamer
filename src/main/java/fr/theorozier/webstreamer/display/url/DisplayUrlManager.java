@@ -1,4 +1,4 @@
-package fr.theorozier.webstreamer.display.client;
+package fr.theorozier.webstreamer.display.url;
 
 import it.unimi.dsi.fastutil.objects.Object2IntArrayMap;
 import net.fabricmc.api.EnvType;

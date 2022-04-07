@@ -1,7 +1,7 @@
 package fr.theorozier.webstreamer.display.render;
 
 import com.mojang.blaze3d.systems.RenderSystem;
-import fr.theorozier.webstreamer.display.client.DisplayUrl;
+import fr.theorozier.webstreamer.display.url.DisplayUrl;
 import fr.theorozier.webstreamer.util.AsyncMap;
 import fr.theorozier.webstreamer.util.AsyncProcessor;
 import io.lindstrom.m3u8.model.MediaPlaylist;
@@ -60,6 +60,7 @@ public class DisplayLayer extends RenderLayer {
 
 		/** The asynchronous processor */
 		private final AsyncProcessor<URI, MediaPlaylist, IOException> asyncPlaylist;
+		/** Minimum timestamp for the next playlist request, only valid when in initial state. */
 		private long playlistNextRequestTimestamp;
 	    /** Segments from the current playlist. */
 	    private List<MediaSegment> playlistSegments;
@@ -67,9 +68,7 @@ public class DisplayLayer extends RenderLayer {
 	    private int playlistOffset;
 		/** Last segment index observed when the last playlist request was done. */
 		private int playlistRequestLastSegmentIndex;
-		// /** Future of the current playlist request. */
-	    // private Future<MediaPlaylist> playlistRequestFuture = null;
-		
+
 		// Segment //
 	    
 	    /** Absolute index of the current segment. */
@@ -88,30 +87,6 @@ public class DisplayLayer extends RenderLayer {
 		private boolean firstGrabber;
 
 		private final AsyncMap<URI, FrameGrabber, IOException> asyncGrabbers;
-
-//		/** A tuple of future and the time it was created at, used to clean up timed out grabbers. */
-//		private record FutureGrabber(Future<FrameGrabber> future, long time) {
-//
-//			/**
-//			 * Wait for the future and stop the grabber directly.
-//			 */
-//			void waitAndStop() {
-//				try {
-//					this.future.get().stop();
-//				} catch (Exception ignored) { }
-//			}
-//
-//			boolean isTimedOut(long now) {
-//				return now - this.time >= GRABBER_REQUEST_TIMEOUT;
-//			}
-//
-//		}
-//
-//		/**
-//		 * Map of future grabbers for future mapped to future segments. Ultimately,
-//		 * they might be unused and the cleanup is made for such cases.
-//		 */
-//	    private final Int2ObjectOpenHashMap<FutureGrabber> futureGrabbers = new Int2ObjectOpenHashMap<>();
 		
 		// Sound //
 		/** The sound source. */

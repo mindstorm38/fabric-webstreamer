@@ -2,7 +2,7 @@ package fr.theorozier.webstreamer.display.render;
 
 import fr.theorozier.webstreamer.WebStreamerClientMod;
 import fr.theorozier.webstreamer.display.DisplayBlockEntity;
-import fr.theorozier.webstreamer.display.client.DisplayUrl;
+import fr.theorozier.webstreamer.display.url.DisplayUrl;
 import fr.theorozier.webstreamer.display.source.DisplaySource;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;

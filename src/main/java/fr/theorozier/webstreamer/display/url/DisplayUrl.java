@@ -1,4 +1,4 @@
-package fr.theorozier.webstreamer.display.client;
+package fr.theorozier.webstreamer.display.url;
 
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
