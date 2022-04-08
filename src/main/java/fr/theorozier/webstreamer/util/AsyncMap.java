@@ -1,5 +1,6 @@
 package fr.theorozier.webstreamer.util;
 
+import fr.theorozier.webstreamer.WebStreamerMod;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 
 import java.util.Iterator;
@@ -94,7 +95,7 @@ public class AsyncMap<FROM, TO, EXC extends Exception> {
         while (it.hasNext()) {
             TimedFuture<TO> item = it.next();
             if (item.isTimedOut(now)) {
-                System.out.println("Cleaning up timed out future: " + item);
+                WebStreamerMod.LOGGER.debug("Cleaning up timed out future: {}", item);
                 executor.execute(() -> {
                     try {
                         this.cleanup.accept(item.future.get());

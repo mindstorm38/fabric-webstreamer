@@ -1,17 +1,17 @@
 package fr.theorozier.webstreamer.display.render;
 
+import fr.theorozier.webstreamer.WebStreamerMod;
+import fr.theorozier.webstreamer.display.audio.AudioStreamingBuffer;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import org.bytedeco.javacv.FFmpegFrameGrabber;
 import org.bytedeco.javacv.Frame;
-import org.lwjgl.openal.AL10;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
-import java.nio.Buffer;
 import java.nio.BufferOverflowException;
 import java.nio.ByteBuffer;
 import java.nio.ShortBuffer;
@@ -21,9 +21,13 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.Flow;
+import java.util.function.Consumer;
 
 /**
- * A specialized frame grabber for displays.
+ * <p>A custom FFMPEG frame grabber working with image frames priority, this means that multiple
+ * audio frames can be grabbed before finding the right image frame for the right timestamp.</p>
+ * <p>The fact that FFMPEG will return the same {@link Frame} instance on every call requires us
+ * to "bufferize" audio frames between each grab.</p>
  */
 @Environment(EnvType.CLIENT)
 public class FrameGrabber {
@@ -37,25 +41,9 @@ public class FrameGrabber {
 	private long deltaTimestamp;
 	private Frame lastFrame;
 	
-	//private long audioRefTimestamp;
-	//private long audioSkipTimestamp;
-	
 	private ShortBuffer tempAudioBuffer;
 	
-	/**
-	 * Buffers for OpenAL audio buffers to play.
-	 * Buffers are in fact sorted in this queue because they are pushed while iterating
-	 * grabbed frames, and audio frames are assumed to be sorted, as well as image frames.
-	 */
-	private final ArrayDeque<TimedAudioBuffer> audioBuffers = new ArrayDeque<>();
-
-	/** Internal timestamped audio buffers, temporarily stored into the grabber. */
-	private record TimedAudioBuffer(int alBufferId, long timestamp) {
-		/** If the audio buffer is never requested for upload, we need to delete it here. */
-		void delete() {
-			AL10.alDeleteBuffers(this.alBufferId);
-		}
-	}
+	private ArrayDeque<AudioStreamingBuffer> startAudioBuffers;
 	
 	public FrameGrabber(DisplayLayerResources pools, URI uri) {
 		this.pools = pools;
@@ -84,24 +72,16 @@ public class FrameGrabber {
 			this.deltaTimestamp = 0L;
 			this.lastFrame = null;
 			
-			//this.audioRefTimestamp = -1L;
-			//this.audioSkipTimestamp = 0L; // Disabled by default.
+			this.startAudioBuffers = new ArrayDeque<>();
 
 			Frame frame;
 			while ((frame = this.grabber.grab()) != null) {
 				if (frame.image != null) {
 					this.refTimestamp = frame.timestamp;
 					this.lastFrame = frame;
-					this.lastFrame.timestamp = 0L;
 					break;
 				} else if (frame.samples != null) {
-					/*if (this.audioRefTimestamp == -1L) {
-						this.audioRefTimestamp = frame.timestamp;
-					}*/
-					// It is intentional for audio frames to keep their real timestamp
-					// because we usually get audio frames before the first image frame
-					// and therefor we can't know the relative timestamp.
-					this.pushAudioBuffer(frame);
+					this.startAudioBuffers.addLast(AudioStreamingBuffer.fromFrame(this.tempAudioBuffer, frame));
 				}
 			}
 
@@ -149,9 +129,10 @@ public class FrameGrabber {
 		this.buffer = null;
 		this.grabber = null;
 		this.tempAudioBuffer = null;
-
-		while (!this.audioBuffers.isEmpty()) {
-			this.audioBuffers.poll().delete();
+		
+		if (this.startAudioBuffers != null) {
+			this.startAudioBuffers.forEach(AudioStreamingBuffer::free);
+			this.startAudioBuffers = null;
 		}
 
 	}
@@ -159,13 +140,22 @@ public class FrameGrabber {
 	/**
 	 * Grab the image frame at the corresponding timestamp, the grabber will attempt
 	 * to get the closest frame before timestamp.
-	 * @param timestamp The timestamp in microseconds.
+	 * @param timestamp The relative timestamp in microseconds. Relative to the first image frame
+	 * @param audioBufferConsumer A consumer for audio buffers decoded during image frame selection.
 	 * @return The grabbed frame or null if frame has not updated since last grab.
 	 */
-	public Frame grabAt(long timestamp) throws IOException {
+	public Frame grabAt(long timestamp, Consumer<AudioStreamingBuffer> audioBufferConsumer) throws IOException {
 
+		if (this.startAudioBuffers != null) {
+			// Called once after start with audio buffers placed before the first frame.
+			this.startAudioBuffers.forEach(audioBufferConsumer);
+			this.startAudioBuffers = null;
+		}
+		
+		long realTimestamp = timestamp + this.refTimestamp;
+		
 		if (this.lastFrame != null) {
-			if (this.lastFrame.timestamp <= timestamp) {
+			if (this.lastFrame.timestamp <= realTimestamp) {
 				Frame frame = this.lastFrame;
 				this.lastFrame = null;
 				return frame;
@@ -178,17 +168,13 @@ public class FrameGrabber {
 		while ((frame = this.grabber.grab()) != null) {
 			if (frame.image != null) {
 
-				// Only image frames sees their timestamp modified.
-				// Audio frame keep their real timestamp.
-				frame.timestamp -= this.refTimestamp;
-
 				if (this.deltaTimestamp == 0) {
-					this.deltaTimestamp = frame.timestamp;
+					this.deltaTimestamp = frame.timestamp - this.refTimestamp;
 				}
 
-				if (frame.timestamp <= timestamp) {
+				if (frame.timestamp <= realTimestamp) {
 					// Delta of the current frame with the targeted timestamp
-					long delta = timestamp - frame.timestamp;
+					long delta = realTimestamp - frame.timestamp;
 					if (delta <= this.deltaTimestamp) {
 						return frame;
 					}
@@ -198,7 +184,7 @@ public class FrameGrabber {
 				}
 
 			} else if (frame.samples != null) {
-				this.pushAudioBuffer(frame);
+				audioBufferConsumer.accept(AudioStreamingBuffer.fromFrame(this.tempAudioBuffer, frame));
 			}
 		}
 
@@ -206,97 +192,13 @@ public class FrameGrabber {
 
 	}
 
-	public void grabRemaining() throws IOException {
+	public void grabRemaining(Consumer<AudioStreamingBuffer> audioBufferConsumer) throws IOException {
 		Frame frame;
 		while ((frame = this.grabber.grab()) != null) {
 			if (frame.samples != null) {
-				this.pushAudioBuffer(frame);
+				audioBufferConsumer.accept(AudioStreamingBuffer.fromFrame(this.tempAudioBuffer, frame));
 			}
 		}
-	}
-
-	public void grabAudioAndUpload(DisplaySoundSource source) {
-		while (!this.audioBuffers.isEmpty()) {
-			source.enqueueRaw(this.audioBuffers.poll().alBufferId);
-		}
-	}
-	
-	/*public void enableAudioSkip(long untilTimestamp) {
-		
-		this.audioSkipTimestamp = untilTimestamp;
-		
-		// Here we drop buffers (already buffered) that are before the given timestamp.
-		
-		// This loop will ultimately break because if we don't break,
-		// we remove an element, if when we reach empty queue, it breaks.
-		while (!this.audioBuffers.isEmpty()) {
-			// In first place we peek (not removing it) to check the timestamp.
-			TimedAudioBuffer ab = this.audioBuffers.peek();
-			if (ab.timestamp - this.audioRefTimestamp > untilTimestamp)
-				break;
-			// If before timestamp, we remove and then delete it.
-			this.audioBuffers.remove().delete();
-		}
-		
-	}*/
-
-//	/**
-//	 * Skip and delete all audio buffers that are timestamped before the given timestamp.
-//	 * @param timestamp The relative reference timestamp.
-//	 */
-//	public void skipAudioBufferBefore(long timestamp) {
-//		// This loop will ultimately break because if we don't break,
-//		// we remove an element, if when we reach empty queue, it breaks.
-//		System.out.println("skipping before ts: " + timestamp);
-//		while (!this.audioBuffers.isEmpty()) {
-//			// In first place we peek (not removing it) to check the timestamp.
-//			TimedAudioBuffer ab = this.audioBuffers.peek();
-//			System.out.println("checking frame: " + ab.timestamp + " (audio ref ts: " + this.audioRefTimestamp + ", diff: " + (ab.timestamp - this.audioRefTimestamp) + ")");
-//			if (ab.timestamp - this.audioRefTimestamp > timestamp) {
-//				System.out.println("=> breaking");
-//				break;
-//			}
-//			System.out.println("=> dropped");
-//			// If before timestamp, we remove and then delete it.
-//			this.audioBuffers.remove().delete();
-//		}
-//	}
-
-	private void pushAudioBuffer(Frame frame) {
-		
-		/*if (this.audioSkipTimestamp > 0 && frame.timestamp - this.audioRefTimestamp <= this.audioSkipTimestamp) {
-			System.out.println("skipping audio buffer at " + (frame.timestamp - this.audioRefTimestamp) + " <= " + this.audioSkipTimestamp);
-			return;
-		}*/
-
-		Buffer sample = frame.samples[0];
-		
-		this.tempAudioBuffer.clear();
-		
-		if (sample instanceof ByteBuffer sampleByte) {
-			int count = sampleByte.remaining();
-			for (int i = 0; i < count; i += 2) {
-				short sampleLeft = (short) ((int) sampleByte.get(i) << 8);
-				short sampleRight = (short) ((int) sampleByte.get(i + 1) << 8);
-				this.tempAudioBuffer.put((short) ((sampleLeft + sampleRight) / 2));
-			}
-		} else if (sample instanceof ShortBuffer sampleShort) {
-			int count = sampleShort.remaining();
-			for (int i = 0; i < count; i += 2) {
-				short sampleLeft = sampleShort.get(i);
-				short sampleRight = sampleShort.get(i + 1);
-				this.tempAudioBuffer.put((short) (((int) sampleLeft + (int) sampleRight) / 2));
-			}
-		} else {
-			return;
-			// throw new IllegalArgumentException("unsupported sample format");
-		}
-		
-		int bufferId = AL10.alGenBuffers();
-		this.tempAudioBuffer.flip();
-		AL10.alBufferData(bufferId, AL10.AL_FORMAT_MONO16, this.tempAudioBuffer, frame.sampleRate);
-		this.audioBuffers.add(new TimedAudioBuffer(bufferId, frame.timestamp));
-
 	}
 	
 	/**
@@ -334,7 +236,7 @@ public class FrameGrabber {
 				try {
 					this.buffer.put(buf);
 				} catch (BufferOverflowException e) {
-					System.out.println("pos before crashing: " + this.buffer.position() + ", incoming buf: " + buf.remaining());
+					WebStreamerMod.LOGGER.debug("pos before crashing: {}, incoming buf: {}", this.buffer.position(), buf.remaining());
 					this.future.completeExceptionally(e);
 				}
 			}

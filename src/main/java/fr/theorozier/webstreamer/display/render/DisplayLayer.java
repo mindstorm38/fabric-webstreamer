@@ -1,6 +1,8 @@
 package fr.theorozier.webstreamer.display.render;
 
 import com.mojang.blaze3d.systems.RenderSystem;
+import fr.theorozier.webstreamer.WebStreamerMod;
+import fr.theorozier.webstreamer.display.audio.AudioStreamingSource;
 import fr.theorozier.webstreamer.display.url.DisplayUrl;
 import fr.theorozier.webstreamer.util.AsyncMap;
 import fr.theorozier.webstreamer.util.AsyncProcessor;
@@ -85,14 +87,13 @@ public class DisplayLayer extends RenderLayer {
 		/** Frame grabber for the current segment. */
         private FrameGrabber grabber;
 
-		/** True if this is the first grabber after an initialisation. */
-		private boolean firstGrabber;
-
 		private final AsyncMap<URI, FrameGrabber, IOException> asyncGrabbers;
 		
 		// Sound //
-		/** The sound source. */
-	    private final DisplaySoundSource soundSource;
+		// /** The sound source. */
+	    // private final DisplaySoundSource soundSource;
+		
+		private final AudioStreamingSource audioSource;
 
 		private Vec3i nearestSoundSourcePos;
 		private float nearestSoundSourceDist;
@@ -113,29 +114,32 @@ public class DisplayLayer extends RenderLayer {
             this.hlsParser = new MediaPlaylistParser(ParsingMode.LENIENT);
 			this.asyncPlaylist = new AsyncProcessor<>(this::requestPlaylistBlocking, true);
 			this.asyncGrabbers = new AsyncMap<>(this::requestGrabberBlocking, FrameGrabber::stop, GRABBER_REQUEST_TIMEOUT);
-			this.soundSource = new DisplaySoundSource();
+			// this.soundSource = new DisplaySoundSource();
+	        
+	        this.audioSource = new AudioStreamingSource();
 
 			this.resetPlaylist();
-
-			System.out.println("Allocate DisplayLayer for " + this.url);
+	
+	        WebStreamerMod.LOGGER.info("Allocate display layer for {}", this.url.uri());
 
         }
 
 		private void free() {
-
-			System.out.println("Free DisplayLayer for " + this.url);
+			
+			WebStreamerMod.LOGGER.info("Free display layer for {}", this.url.uri());
 
 			this.tex.clearGlId();
 			this.asyncGrabbers.cleanup(this.res.getExecutor());
-			this.soundSource.free();
+			this.audioSource.free();
+			// this.soundSource.free();
 
 		}
 
 		private void resetSoundSource() {
 			if (this.nearestSoundSourcePos != null) {
-				this.soundSource.setPosition(this.nearestSoundSourcePos);
+				this.audioSource.setPosition(this.nearestSoundSourcePos);
 			} else {
-				this.soundSource.stop();
+				this.audioSource.stop();
 			}
 			this.nearestSoundSourcePos = null;
 			this.nearestSoundSourceDist = Float.MAX_VALUE;
@@ -241,24 +245,29 @@ public class DisplayLayer extends RenderLayer {
 		 * Try to pull the given grabber, requested if not already.
 		 * @param index The segment index to pull.
 		 */
-		private void pullGrabberAndUse(int index) {
+		private void pullGrabberAndUse(int index, boolean requestIfNotAlready) {
 			boolean requested = this.asyncGrabbers.pull(index, grabber -> {
 				this.grabber = grabber;
 			}, Throwable::printStackTrace);
-			if (!requested) {
+			if (!requested && requestIfNotAlready) {
 				this.requestGrabber(index);
 			}
 		}
-
-		private void stopGrabber(boolean grabRemaining) {
+	
+	    /**
+	     * Ensure that the current frame grabber get reset.
+	     * @param toBeContinued True if a next grabber should directly follow the current one.
+	     */
+		private void resetGrabber(boolean toBeContinued) {
 			if (this.grabber != null) {
-				if (grabRemaining) {
+				if (toBeContinued) {
 					try {
-						this.grabber.grabRemaining();
-						this.grabber.grabAudioAndUpload(this.soundSource);
+						this.grabber.grabRemaining(this.audioSource::queueBuffer);
 					} catch (IOException e) {
 						e.printStackTrace();
 					}
+				} else {
+					this.audioSource.stop();
 				}
 				this.res.getExecutor().execute(this.grabber::stop);
 				this.grabber = null;
@@ -270,23 +279,29 @@ public class DisplayLayer extends RenderLayer {
             long now = System.nanoTime();
             double elapsedTime = ((double) (now - this.lastFetchTimestamp) / 1000000000.0);
             this.lastFetchTimestamp = now;
-
-			if (this.playlistSegments != null && !this.firstGrabber) {
+	
+	        // System.out.println("sound source playing: " + this.soundSource.isPlaying());
+			
+			if (this.playlistSegments != null) {
 	
 				// Tries to pull the playlist if being requested.
 	            this.fetchPlaylist();
 				
 				// This algorithm tries to go forward in segments by elapsedTime.
 				double remainingTime = elapsedTime;
-	
+				
+				// Request a playlist reset.
+				boolean resetPlaylist = false;
+				// Request a grabber reset, usually used when switching segment.
+				boolean resetGrabber = false;
+				
 				for (;;) {
 					
 					// If we are too slow and the current segment is now out of the playlist.
 					if (this.getCurrentSegment() == null) {
-						System.err.println("current segment: reset playlist");
-						this.resetPlaylist();
-						this.stopGrabber(true);
-						this.soundSource.stop();
+						// System.err.println("current segment: reset playlist");
+						resetPlaylist = true;
+						resetGrabber = true;
 						break;
 					}
 					
@@ -297,15 +312,13 @@ public class DisplayLayer extends RenderLayer {
 						MediaSegment seg = this.getCurrentSegment();
 						
 						if (seg == null) {
-							System.err.println("next segment null: reset playlist");
-							this.resetPlaylist();
-							this.stopGrabber(true);
-							this.soundSource.stop();
+							// System.err.println("next segment null: reset playlist");
+							resetPlaylist = true;
+							resetGrabber = true;
 							break;
 						}
 						
-						//System.out.println("=> Going next segment and removing grabber...");
-						this.stopGrabber(true);
+						resetGrabber = true;
 						remainingTime = this.segmentTimestamp - this.segmentDuration;
 						this.segmentDuration = seg.duration();
 						this.segmentTimestamp = 0;
@@ -316,16 +329,29 @@ public class DisplayLayer extends RenderLayer {
 					
 				}
 				
-				int offsetFromLastSegment = this.getLastSegmentIndex() - this.segmentIndex;
-				
-				if (offsetFromLastSegment <= 1) {
-					// We are at most 1 segment from the end, so request a new playlist.
-					this.requestPlaylist(now);
-				}
-				
-				if (offsetFromLastSegment >= 1) {
-					// If we have at least one segment after the current one, preload it.
-					this.requestGrabber(this.segmentIndex + 1);
+				if (resetPlaylist) {
+					this.resetPlaylist();
+					this.resetGrabber(false);
+				} else {
+					
+					if (resetGrabber) {
+						// We only want to continue if the sound source is currently playing,
+						// not playing means we are desynchronized.
+						this.resetGrabber(true);
+					}
+					
+					int offsetFromLastSegment = this.getLastSegmentIndex() - this.segmentIndex;
+					
+					if (offsetFromLastSegment <= 1) {
+						// We are at most 1 segment from the end, so request a new playlist.
+						this.requestPlaylist(now);
+					}
+					
+					if (offsetFromLastSegment >= 1) {
+						// If we have at least one segment after the current one, preload it.
+						this.requestGrabber(this.segmentIndex + 1);
+					}
+					
 				}
 	
             }
@@ -342,14 +368,13 @@ public class DisplayLayer extends RenderLayer {
 					return;
 				}
 		
-		        System.out.println("Initializing display layer...");
+		        WebStreamerMod.LOGGER.debug("Initializing display layer...");
 
 				double totalDuration = 0.0;
 				for (MediaSegment seg : this.playlistSegments) {
 			        totalDuration += seg.duration();
 		        }
 		
-		        this.stopGrabber(false);
 		        double globalTimestamp = totalDuration;
 		
 		        this.segmentIndex = this.playlistOffset + (this.playlistSegments.size() - 1);
@@ -382,30 +407,26 @@ public class DisplayLayer extends RenderLayer {
 			
 		        }
 		
-				// We are now starting the segment at 0.0 in every case to avoid
-		        // complicated skip mechanisms for audio frames because we no
-		        // longer need such skips.
-		        this.segmentTimestamp = 0.0;
-				this.firstGrabber = true;
-		
 	        }
 			
+			// Grabbing and uploading section...
+	  
+			// If the grabber is in reset state, try to get it.
             if (this.grabber == null) {
-				this.pullGrabberAndUse(this.segmentIndex);
+				this.pullGrabberAndUse(this.segmentIndex, true);
 				if (this.grabber == null) {
+					// Abort if not ready to use.
 					return;
 				}
-	            this.firstGrabber = false;
             }
 
 			long segmentTimestampMicros = (long) (this.segmentTimestamp * 1000000);
 			
-			Frame frame = this.grabber.grabAt(segmentTimestampMicros);
+			Frame frame = this.grabber.grabAt(segmentTimestampMicros, this.audioSource::queueBuffer);
 			if (frame != null) {
 				this.tex.upload(frame);
+				this.audioSource.playFrom(frame.timestamp);
 			}
-
-			this.grabber.grabAudioAndUpload(this.soundSource);
 			
         }
 
