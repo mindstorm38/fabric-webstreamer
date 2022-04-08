@@ -11,6 +11,8 @@
   "gui.webstreamer.display.malformedUrl": "Error: malformed URL",
   "gui.webstreamer.display.noQuality": "No quality",
   "gui.webstreamer.display.quality": "Quality",
+  "gui.webstreamer.display.audioDistance": "Distance",
+  "gui.webstreamer.display.audioVolume": "Volume",
   "gui.webstreamer.display.error.noToken": "Error: no token",
   "gui.webstreamer.display.error.channelNotFound": "Error: channel not found",
   "gui.webstreamer.display.error.channelOffline": "Error: channel offline",

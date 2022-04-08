@@ -48,6 +48,12 @@ public class DisplayBlockEntity extends BlockEntity {
         return height;
     }
     
+    public void setAudioConfig(float distance, float volume) {
+        this.audioDistance = distance;
+        this.audioVolume = volume;
+        this.markDirty();
+    }
+    
     public float getAudioDistance() {
         return audioDistance;
     }

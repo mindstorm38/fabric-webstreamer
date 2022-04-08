@@ -45,6 +45,8 @@ public class DisplayBlockScreen extends Screen {
     private static final Text MALFORMED_URL_TEXT = new TranslatableText("gui.webstreamer.display.malformedUrl");
     private static final Text NO_QUALITY_TEXT = new TranslatableText("gui.webstreamer.display.noQuality");
     private static final Text QUALITY_TEXT = new TranslatableText("gui.webstreamer.display.quality");
+    private static final String AUDIO_DISTANCE_TEXT_KEY = "gui.webstreamer.display.audioDistance";
+    private static final String AUDIO_VOLUME_TEXT_KEY = "gui.webstreamer.display.audioVolume";
 
     private static final Text ERR_NO_TOKEN_TEXT = new TranslatableText("gui.webstreamer.display.error.noToken");
     private static final Text ERR_CHANNEL_NOT_FOUND_TEXT = new TranslatableText("gui.webstreamer.display.error.channelNotFound");
@@ -64,11 +66,15 @@ public class DisplayBlockScreen extends Screen {
     private TextFieldWidget displayWidthField;
     private TextFieldWidget displayHeightField;
     private CyclingButtonWidget<SourceType> sourceTypeButton;
+    private AudioDistanceSliderWidget audioDistanceSlider;
+    private AudioVolumeSliderWidget audioVolumeSlider;
     private ButtonWidget doneButton;
     private ButtonWidget cancelButton;
 
     private float displayWidth;
     private float displayHeight;
+    private float displayAudioDistance;
+    private float displayAudioVolume;
 
     public DisplayBlockScreen(DisplayBlockEntity blockEntity) {
 
@@ -89,6 +95,8 @@ public class DisplayBlockScreen extends Screen {
 
         this.displayWidth = blockEntity.getWidth();
         this.displayHeight = blockEntity.getHeight();
+        this.displayAudioDistance = blockEntity.getAudioDistance();
+        this.displayAudioVolume = blockEntity.getAudioVolume();
 
     }
 
@@ -104,7 +112,7 @@ public class DisplayBlockScreen extends Screen {
 
         this.xHalf = this.width / 2;
         this.yTop = 60;
-        this.ySourceTop = 100;
+        this.ySourceTop = 130;
 
         String displayWidthRaw = this.displayWidthField == null ? Float.toString(this.displayWidth) : this.displayWidthField.getText();
         String displayHeightRaw = this.displayHeightField == null ? Float.toString(this.displayHeight) : this.displayHeightField.getText();
@@ -128,6 +136,14 @@ public class DisplayBlockScreen extends Screen {
         this.sourceTypeButton.setValue(this.sourceType);
         this.addDrawableChild(this.sourceTypeButton);
 
+        this.audioDistanceSlider = new AudioDistanceSliderWidget(xHalf - 154, yTop + 36, 150, 20, this.displayAudioDistance, 64);
+        this.audioDistanceSlider.setChangedListener(dist -> this.displayAudioDistance = dist);
+        this.addDrawableChild(this.audioDistanceSlider);
+
+        this.audioVolumeSlider = new AudioVolumeSliderWidget(xHalf + 4, yTop + 36, 150, 20, this.displayAudioVolume);
+        this.audioVolumeSlider.setChangedListener(volume -> this.displayAudioVolume = volume);
+        this.addDrawableChild(this.audioVolumeSlider);
+        
         this.doneButton = new ButtonWidget(xHalf - 4 - 150, height / 4 + 120 + 12, 150, 20, ScreenTexts.DONE, button -> {
             this.commitAndClose();
         });
@@ -173,6 +189,7 @@ public class DisplayBlockScreen extends Screen {
     private void commitAndClose() {
         if (Float.isFinite(this.displayWidth) && Float.isFinite(this.displayHeight)) {
             this.blockEntity.setSize(this.displayWidth, this.displayHeight);
+            this.blockEntity.setAudioConfig(this.displayAudioDistance, this.displayAudioVolume);
             if (this.sourceScreen != null) {
                 this.blockEntity.setSource(this.sourceScreen.source);
             }
@@ -337,10 +354,10 @@ public class DisplayBlockScreen extends Screen {
             addSelectableChild(this.channelField);
             setInitialFocus(this.channelField);
             addDrawableChild(this.channelField);
-
-            this.qualitySlider = new QualitySliderWidget(xHalf - 154, ySourceTop + 50, 308, 20);
+    
+            this.qualitySlider = new QualitySliderWidget(xHalf - 154, ySourceTop + 50, 308, 20, this.qualitySlider);
             this.qualitySlider.setChangedListener(this::onQualityChanged);
-            this.qualitySlider.visible = false;
+            this.updateQualitySlider();
             addSelectableChild(this.qualitySlider);
             addDrawableChild(this.qualitySlider);
 
@@ -412,11 +429,18 @@ public class DisplayBlockScreen extends Screen {
         private List<PlaylistQuality> qualities;
         private Consumer<PlaylistQuality> changedListener;
 
-        public QualitySliderWidget(int x, int y, int width, int height) {
+        public QualitySliderWidget(int x, int y, int width, int height, QualitySliderWidget previousSlider) {
             super(x, y, width, height, LiteralText.EMPTY, 0.0);
-            this.setQualities(null);
+            if (previousSlider != null) {
+                this.setQualities(previousSlider.qualities);
+                this.qualityIndex = previousSlider.qualityIndex;
+                this.value = (double) this.qualityIndex  / (double) (this.qualities.size() - 1);
+                this.updateMessage();
+            } else {
+                this.setQualities(null);
+            }
         }
-
+    
         public void setQualities(List<PlaylistQuality> qualities) {
             this.qualities = qualities;
             this.applyValue();
@@ -469,6 +493,63 @@ public class DisplayBlockScreen extends Screen {
             }
         }
 
+    }
+    
+    private static class AudioDistanceSliderWidget extends SliderWidget {
+        
+        private final float maxDistance;
+        private Consumer<Float> changedListener;
+        
+        public AudioDistanceSliderWidget(int x, int y, int width, int height, float distance, float maxDistance) {
+            super(x, y, width, height, LiteralText.EMPTY, distance / maxDistance);
+            this.maxDistance = maxDistance;
+            this.updateMessage();
+        }
+        
+        public void setChangedListener(Consumer<Float> changedListener) {
+            this.changedListener = changedListener;
+        }
+        
+        private float getDistance() {
+            return (float) (this.value * this.maxDistance);
+        }
+        
+        @Override
+        protected void updateMessage() {
+            this.setMessage(new TranslatableText(AUDIO_DISTANCE_TEXT_KEY).append(": ").append(Integer.toString((int) this.getDistance())));
+        }
+        
+        @Override
+        protected void applyValue() {
+            this.changedListener.accept(this.getDistance());
+        }
+        
+    }
+    
+    private static class AudioVolumeSliderWidget extends SliderWidget {
+        
+        private Consumer<Float> changedListener;
+    
+        public AudioVolumeSliderWidget(int x, int y, int width, int height, float value) {
+            super(x, y, width, height, LiteralText.EMPTY, value);
+            this.updateMessage();
+        }
+    
+        public void setChangedListener(Consumer<Float> changedListener) {
+            this.changedListener = changedListener;
+        }
+    
+        @Override
+        protected void updateMessage() {
+            Text text = (this.value == this.getYImage(false)) ? ScreenTexts.OFF : new LiteralText((int)(this.value * 100.0) + "%");
+            this.setMessage(new TranslatableText(AUDIO_VOLUME_TEXT_KEY).append(": ").append(text));
+        }
+    
+        @Override
+        protected void applyValue() {
+            this.changedListener.accept((float) this.value);
+        }
+        
     }
 
 }
