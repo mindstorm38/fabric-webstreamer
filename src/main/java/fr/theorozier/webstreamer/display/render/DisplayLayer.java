@@ -224,9 +224,12 @@ public class DisplayLayer extends RenderLayer {
 					this.playlistOffset = (int) playlist.mediaSequence();
 					if (!this.playlistSegments.isEmpty()) {
 						MediaSegment lastSegment = this.playlistSegments.get(this.playlistSegments.size() - 1);
-						this.playlistRequestInterval = (long) (lastSegment.duration() * 1000000000.0 * 0.7);
+						long newInterval = (long) (lastSegment.duration() * 1000000000.0 * 0.7);
+						if (newInterval != this.playlistRequestInterval) {
+							WebStreamerMod.LOGGER.debug("New request interval: {}", newInterval);
+							this.playlistRequestInterval = newInterval;
+						}
 					}
-					// System.out.println("next playlist from " + this.playlistOffset + " to " + this.getLastSegmentIndex());
 				}
 			}, exc -> {
 				// If failing, put timestamp to retry later.
@@ -376,7 +379,7 @@ public class DisplayLayer extends RenderLayer {
 					return;
 				}
 		
-		        WebStreamerMod.LOGGER.debug("Initializing display layer...");
+		        WebStreamerMod.LOGGER.info("Initializing display layer...");
 
 				double totalDuration = 0.0;
 				for (MediaSegment seg : this.playlistSegments) {
