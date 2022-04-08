@@ -46,7 +46,7 @@ public class DisplayLayerManager {
         RenderSystem.assertOnRenderThread();
         this.layers.values().forEach(layer -> {
             layer.displayTick();
-            layer.resetSoundSource();
+            layer.resetAudioSource();
         });
 
         long now = System.nanoTime();

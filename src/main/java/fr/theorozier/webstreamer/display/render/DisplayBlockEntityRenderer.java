@@ -46,7 +46,9 @@ public class DisplayBlockEntityRenderer implements BlockEntityRenderer<DisplayBl
                 VertexConsumer buffer = vertexConsumers.getBuffer(layer);
 
                 BlockPos pos = entity.getPos();
-                layer.pushSoundSource(pos, pos.getManhattanDistance(this.gameRenderer.getCamera().getBlockPos()));
+                float audioDistance = entity.getAudioDistance();
+                float audioVolume = entity.getAudioVolume();
+                layer.pushAudioSource(pos, pos.getManhattanDistance(this.gameRenderer.getCamera().getBlockPos()), audioDistance, audioVolume);
 
                 // Width/Height start coords
                 float ws = renderData.getWidthOffset();

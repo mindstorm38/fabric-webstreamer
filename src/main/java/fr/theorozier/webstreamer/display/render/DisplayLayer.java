@@ -95,8 +95,10 @@ public class DisplayLayer extends RenderLayer {
 		
 		private final AudioStreamingSource audioSource;
 
-		private Vec3i nearestSoundSourcePos;
-		private float nearestSoundSourceDist;
+		private Vec3i nearestAudioPos;
+		private float nearestAudioDist;
+		private float nearestAudioDistance;
+		private float nearestAudioVolume;
 
 		// Timing //
 		/** Time in nanoseconds (monotonic) of the last use. */
@@ -135,20 +137,26 @@ public class DisplayLayer extends RenderLayer {
 
 		}
 
-		private void resetSoundSource() {
-			if (this.nearestSoundSourcePos != null) {
-				this.audioSource.setPosition(this.nearestSoundSourcePos);
+		private void resetAudioSource() {
+			if (this.nearestAudioPos != null) {
+				this.audioSource.setPosition(this.nearestAudioPos);
+				this.audioSource.setAttenuation(this.nearestAudioDistance);
+				this.audioSource.setVolume(this.nearestAudioVolume);
 			} else {
 				this.audioSource.stop();
 			}
-			this.nearestSoundSourcePos = null;
-			this.nearestSoundSourceDist = Float.MAX_VALUE;
+			this.nearestAudioPos = null;
+			this.nearestAudioDist = Float.MAX_VALUE;
+			this.nearestAudioDistance = 0f;
+			this.nearestAudioVolume = 0f;
 		}
 
-		private void pushSoundSource(Vec3i pos, float dist) {
-			if (dist < this.nearestSoundSourceDist) {
-				this.nearestSoundSourcePos = pos;
-				this.nearestSoundSourceDist = dist;
+		private void pushAudioSource(Vec3i pos, float dist, float audioDistance, float audioVolume) {
+			if (dist < this.nearestAudioDist) {
+				this.nearestAudioPos = pos;
+				this.nearestAudioDist = dist;
+				this.nearestAudioDistance = audioDistance;
+				this.nearestAudioVolume = audioVolume;
 			}
 		}
 		
@@ -487,12 +495,12 @@ public class DisplayLayer extends RenderLayer {
 		this.inner.tick();
 	}
 
-	public void resetSoundSource() {
-		this.inner.resetSoundSource();
+	public void resetAudioSource() {
+		this.inner.resetAudioSource();
 	}
 
-	public void pushSoundSource(Vec3i pos, float dist) {
-		this.inner.pushSoundSource(pos, dist);
+	public void pushAudioSource(Vec3i pos, float dist, float audioDistance, float audioVolume) {
+		this.inner.pushAudioSource(pos, dist, audioDistance, audioVolume);
 	}
 
 	/**

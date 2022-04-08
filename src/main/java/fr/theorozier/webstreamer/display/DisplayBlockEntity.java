@@ -18,6 +18,8 @@ public class DisplayBlockEntity extends BlockEntity {
     private DisplaySource source;
     private float width = 1;
     private float height = 1;
+    private float audioDistance = 10f;
+    private float audioVolume = 1f;
 
     public DisplayBlockEntity(BlockPos pos, BlockState state) {
         super(WebStreamerMod.DISPLAY_BLOCK_ENTITY, pos, state);
@@ -45,7 +47,15 @@ public class DisplayBlockEntity extends BlockEntity {
     public float getHeight() {
         return height;
     }
-
+    
+    public float getAudioDistance() {
+        return audioDistance;
+    }
+    
+    public float getAudioVolume() {
+        return audioVolume;
+    }
+    
     @Override
     protected void writeNbt(NbtCompound nbt) {
         
@@ -56,6 +66,8 @@ public class DisplayBlockEntity extends BlockEntity {
     
         displayNbt.putFloat("width", this.width);
         displayNbt.putFloat("height", this.height);
+        displayNbt.putFloat("audioDistance", this.audioDistance);
+        displayNbt.putFloat("audioVolume", this.audioVolume);
         
         if (this.source != null) {
             displayNbt.putString("type", this.source.getType());
@@ -83,6 +95,18 @@ public class DisplayBlockEntity extends BlockEntity {
                 this.height = height.floatValue();
             } else {
                 this.height = 1;
+            }
+            
+            if (displayNbt.get("audioDistance") instanceof NbtFloat audioDistance) {
+                this.audioDistance = audioDistance.floatValue();
+            } else {
+                this.audioDistance = 10f;
+            }
+            
+            if (displayNbt.get("audioVolume") instanceof NbtFloat audioVolume) {
+                this.audioVolume = audioVolume.floatValue();
+            } else {
+                this.audioVolume = 1f;
             }
     
             if (displayNbt.get("type") instanceof NbtString type) {
