@@ -24,6 +24,15 @@ import java.util.concurrent.atomic.AtomicInteger;
 @Environment(EnvType.CLIENT)
 public class DisplayLayerResources {
 	
+	/** 8 Mio buffer for pre-storing whole TransportStream file. */
+	private static final int RAW_FILE_BUFFER_SIZE = 1 << 23;
+	/** Limit to 256 Mio of raw file buffers. */
+	private static final int RAW_FILE_BUFFER_LIMIT = 32;
+	/** 8 Kio buffer for converting (16 or 8 bits) stereo to mono 16 bits audio stream. */
+	private static final int AUDIO_BUFFER_SIZE = 8192;
+	/** Limit to 512 Kio of audio buffers. */
+	private static final int AUDIO_BUFFER_LIMIT = 64;
+	
 	private final ExecutorService executor = Executors.newFixedThreadPool(2, new ThreadFactory() {
 		private final AtomicInteger counter = new AtomicInteger();
 		@Override
@@ -34,10 +43,10 @@ public class DisplayLayerResources {
 	
 	private final HttpClient httpClient = HttpClient.newHttpClient();
 	private final List<ByteBuffer> rawFileBuffers = new ArrayList<>();
-	private final List<ShortBuffer> soundBuffers = new ArrayList<>();
+	private final List<ShortBuffer> audioBuffers = new ArrayList<>();
 	
 	private int rawFileBuffersCount = 0;
-	private int soundBuffersCount = 0;
+	private int audioBuffersCount = 0;
 	
 	public ExecutorService getExecutor() {
 		return this.executor;
@@ -56,10 +65,12 @@ public class DisplayLayerResources {
 			try {
 				return this.rawFileBuffers.remove(this.rawFileBuffers.size() - 1);
 			} catch (IndexOutOfBoundsException e) {
+				if (this.rawFileBuffersCount >= RAW_FILE_BUFFER_LIMIT) {
+					throw new IllegalStateException("reached maximum number of allocated raw file buffers: " + RAW_FILE_BUFFER_LIMIT);
+				}
 				this.rawFileBuffersCount++;
 				WebStreamerMod.LOGGER.debug("Number of allocated raw file buffers: {}", this.rawFileBuffersCount);
-				// 4 Mio buffer for pre-storing whole TransportStream file.
-				return ByteBuffer.allocate(1 << 22);
+				return ByteBuffer.allocate(RAW_FILE_BUFFER_SIZE);
 			}
 		}
 	}
@@ -74,22 +85,24 @@ public class DisplayLayerResources {
 	 * Allocate a sound buffer. Such buffers are backed by a native memory in
 	 * order to be directly used as OpenAL buffer data.
 	 */
-	public ShortBuffer allocSoundBuffer() {
-		synchronized (this.soundBuffers) {
+	public ShortBuffer allocAudioBuffer() {
+		synchronized (this.audioBuffers) {
 			try {
-				return this.soundBuffers.remove(this.soundBuffers.size() - 1);
+				return this.audioBuffers.remove(this.audioBuffers.size() - 1);
 			} catch (IndexOutOfBoundsException e) {
-				this.soundBuffersCount++;
-				WebStreamerMod.LOGGER.debug("Number of allocated sound buffers: {}", this.soundBuffersCount);
-				// 8 Kio buffer for converting stereo to mono audio stream.
-				return ByteBuffer.allocateDirect(8192).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer();
+				if (this.audioBuffersCount >= AUDIO_BUFFER_LIMIT) {
+					throw new IllegalStateException("reached maximum number of allocated audio buffers: " + AUDIO_BUFFER_LIMIT);
+				}
+				this.audioBuffersCount++;
+				WebStreamerMod.LOGGER.debug("Number of allocated sound buffers: {}", this.audioBuffersCount);
+				return ByteBuffer.allocateDirect(AUDIO_BUFFER_SIZE).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer();
 			}
 		}
 	}
 	
-	public void freeSoundBuffer(ShortBuffer buffer) {
-		synchronized (this.soundBuffers) {
-			this.soundBuffers.add(buffer);
+	public void freeAudioBuffer(ShortBuffer buffer) {
+		synchronized (this.audioBuffers) {
+			this.audioBuffers.add(buffer);
 		}
 	}
 	

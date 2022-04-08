@@ -66,7 +66,7 @@ public class FrameGrabber {
 			this.grabber = new FFmpegFrameGrabber(grabberStream);
 			this.grabber.startUnsafe();
 
-			this.tempAudioBuffer = this.pools.allocSoundBuffer();
+			this.tempAudioBuffer = this.pools.allocAudioBuffer();
 
 			this.refTimestamp = 0L;
 			this.deltaTimestamp = 0L;
@@ -97,7 +97,7 @@ public class FrameGrabber {
 			}
 
 			if (this.tempAudioBuffer != null) {
-				this.pools.freeSoundBuffer(this.tempAudioBuffer);
+				this.pools.freeAudioBuffer(this.tempAudioBuffer);
 				this.tempAudioBuffer = null;
 			}
 
@@ -124,7 +124,7 @@ public class FrameGrabber {
 		} catch (IOException ignored) { }
 		
 		this.pools.freeRawFileBuffer(this.buffer);
-		this.pools.freeSoundBuffer(this.tempAudioBuffer);
+		this.pools.freeAudioBuffer(this.tempAudioBuffer);
 		
 		this.buffer = null;
 		this.grabber = null;
