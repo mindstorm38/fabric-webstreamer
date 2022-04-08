@@ -54,9 +54,12 @@ public class AudioStreamingSource {
 		this.sourceId = 0;
 	}
 	
+	/** Manually stop the source, when doing that all queued buffers are freed and cleared. */
 	public void stop() {
 		this.checkValid();
 		alSourceStop(this.sourceId);
+		this.queue.forEach(AudioStreamingBuffer::free);
+		this.queue.clear();
 	}
 	
 	public void setPosition(Vec3i pos) {
