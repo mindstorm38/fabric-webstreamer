@@ -5,6 +5,7 @@ import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
 /**
@@ -21,7 +22,7 @@ public class AsyncProcessor<FROM, TO, EXC extends Exception> {
     private final boolean allowDuplicates;
 
     private FROM pending;
-    private boolean submitted;
+    private FROM requested;
     private Future<TO> future;
 
     public AsyncProcessor(Converter<FROM, TO, EXC> converter, boolean allowDuplicates) {
@@ -34,7 +35,7 @@ public class AsyncProcessor<FROM, TO, EXC extends Exception> {
     }
 
     @SuppressWarnings("unchecked")
-    public void fetch(ExecutorService executor, Consumer<TO> onSuccess, Consumer<EXC> onError) {
+    public void fetch(ExecutorService executor, BiConsumer<FROM, TO> onSuccess, BiConsumer<FROM, EXC> onError) {
 
         if (this.future != null && this.future.isDone()) {
             // If the thread is already interrupted, return early to avoid
@@ -42,38 +43,49 @@ public class AsyncProcessor<FROM, TO, EXC extends Exception> {
             if (Thread.interrupted())
                 return;
             try {
-                onSuccess.accept(this.future.get());
+                onSuccess.accept(this.pending, this.future.get());
             } catch (InterruptedException | CancellationException e) {
                 // Cancel should not happen.
             } catch (ExecutionException ee) {
                 try {
-                    onError.accept((EXC) ee.getCause());
+                    onError.accept(this.pending, (EXC) ee.getCause());
                 } catch (ClassCastException cce) {
                     // In case if runtime exceptions.
                 }
             } finally {
                 this.future = null;
+                this.pending = null;
             }
         }
 
-        if (this.future == null && this.pending != null && !this.submitted) {
-            FROM from = this.pending;
+        if (this.future == null && this.requested != null) {
+            FROM from = this.requested;
+            this.pending = from;
             this.future = executor.submit(() -> this.converter.convert(from));
-            this.submitted = true;
+            this.requested = null;
         }
 
+    }
+    
+    public void fetch(ExecutorService executor, Consumer<TO> onSuccess, Consumer<EXC> onError) {
+        this.fetch(executor, (from, to) -> onSuccess.accept(to), (from, err) -> onError.accept(err));
     }
 
     public void push(FROM from) {
-        if (this.allowDuplicates || !Objects.equals(from, this.pending)) {
-            this.pending = from;
-            this.submitted = false;
+        Objects.requireNonNull(from);
+        if (this.allowDuplicates || !Objects.equals(from, this.requested)) {
+            this.requested = from;
         }
     }
     
-    /**
-     * @return Return <code>true</code> if this async processor is in idle state.
-     */
+    public boolean requested() {
+        return this.requested != null;
+    }
+    
+    public boolean active() {
+        return this.future != null;
+    }
+    
     public boolean idle() {
         return this.future == null;
     }

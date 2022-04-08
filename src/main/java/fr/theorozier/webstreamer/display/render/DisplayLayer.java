@@ -41,8 +41,10 @@ public class DisplayLayer extends RenderLayer {
 	private static final long GRABBER_REQUEST_TIMEOUT = 10L * 1000000000L;
 	/** Interval of internal cleanups (unused grabbers). */
 	private static final long CLEANUP_INTERVAL = 10L * 1000000000L;
+	
+	private static final long INITIAL_PLAYLIST_REQUEST_INTERVAL = 500000000L; // 0.5 seconds
 	/** Interval of playlist requests when a past request has failed, to avoid spamming. */
-	private static final long FAILING_PLAYLIST_INTERVAL = 5L * 1000000000L;
+	private static final long FAILING_PLAYLIST_REQUEST_INTERVAL = 5L * 1000000000L;
 
     private static class Inner {
 
@@ -54,20 +56,20 @@ public class DisplayLayer extends RenderLayer {
         private final MediaPlaylistParser hlsParser;
 	
 	    /** In nanoseconds monotonic, last fetch time. */
-	    private long lastFetch = 0;
+	    private long lastFetchTimestamp = 0;
 	
 	    // Playlist //
 
 		/** The asynchronous processor */
 		private final AsyncProcessor<URI, MediaPlaylist, IOException> asyncPlaylist;
-		/** Minimum timestamp for the next playlist request, only valid when in initial state. */
-		private long playlistNextRequestTimestamp;
 	    /** Segments from the current playlist. */
 	    private List<MediaSegment> playlistSegments;
 	    /** Segment offset of the current playlist. */
 	    private int playlistOffset;
-		/** Last segment index observed when the last playlist request was done. */
-		private int playlistRequestLastSegmentIndex;
+	    /** Minimum timestamp for the next playlist request, only valid when in initial state. */
+	    private long playlistNextRequestTimestamp;
+		/** Current variable interval for playlist requests. */
+		private long playlistRequestInterval;
 
 		// Segment //
 	    
@@ -166,9 +168,9 @@ public class DisplayLayer extends RenderLayer {
 		    return this.getSegment(this.segmentIndex);
 	    }
 	
-	    /** @return The last segment index for the current playlist. */
+	    /** @return The last segment index for the current playlist. Special value of 0 if no segment. */
 	    private int getLastSegmentIndex() {
-		    return this.playlistSegments.size() - 1 + this.playlistOffset;
+		    return this.playlistSegments == null ? 0 : this.playlistSegments.size() - 1 + this.playlistOffset;
 	    }
      
 		/** Internal blocking method to request the playlist. */
@@ -190,26 +192,33 @@ public class DisplayLayer extends RenderLayer {
 		private void resetPlaylist() {
 			this.playlistSegments = null;
 			this.playlistNextRequestTimestamp = 0;
-			this.playlistRequestLastSegmentIndex = -1;
+			this.playlistRequestInterval = INITIAL_PLAYLIST_REQUEST_INTERVAL;
 		}
 		
 		/** Request the playlist if not already requesting and if this request is not pointless. */
-		private void requestPlaylist() {
-			int lastSegmentIndex = this.playlistSegments == null ? 0 : this.getLastSegmentIndex();
-			if (lastSegmentIndex > this.playlistRequestLastSegmentIndex) {
-				this.playlistRequestLastSegmentIndex = lastSegmentIndex;
+		private void requestPlaylist(long now) {
+			if (now >= this.playlistNextRequestTimestamp) {
 				this.asyncPlaylist.push(this.url.uri());
+				this.playlistNextRequestTimestamp = now + this.playlistRequestInterval;
+				// System.out.println("requested playlist, interval: " + this.playlistRequestInterval);
 			}
 		}
 	
 		private void fetchPlaylist() {
 			this.asyncPlaylist.fetch(this.res.getExecutor(), playlist -> {
-				this.playlistSegments = playlist.mediaSegments();
-				this.playlistOffset = (int) playlist.mediaSequence();
+				int newOffset = (int) playlist.mediaSequence();
+				if (newOffset > this.playlistOffset) {
+					this.playlistSegments = playlist.mediaSegments();
+					this.playlistOffset = (int) playlist.mediaSequence();
+					if (!this.playlistSegments.isEmpty()) {
+						MediaSegment lastSegment = this.playlistSegments.get(this.playlistSegments.size() - 1);
+						this.playlistRequestInterval = (long) (lastSegment.duration() * 1000000000.0 * 0.7);
+					}
+					// System.out.println("next playlist from " + this.playlistOffset + " to " + this.getLastSegmentIndex());
+				}
 			}, exc -> {
 				// If failing, put timestamp to retry later.
-				this.playlistNextRequestTimestamp = System.nanoTime() + FAILING_PLAYLIST_INTERVAL;
-				this.playlistRequestLastSegmentIndex = -1;
+				this.playlistRequestInterval = FAILING_PLAYLIST_REQUEST_INTERVAL;
 			});
 		}
 		
@@ -258,11 +267,11 @@ public class DisplayLayer extends RenderLayer {
 	
         private void fetch() throws IOException {
 			
-            long currentTime = System.nanoTime();
-            double elapsedTime = ((double) (currentTime - this.lastFetch) / 1000000000.0);
-            this.lastFetch = currentTime;
+            long now = System.nanoTime();
+            double elapsedTime = ((double) (now - this.lastFetchTimestamp) / 1000000000.0);
+            this.lastFetchTimestamp = now;
 
-			if (this.playlistSegments != null) {
+			if (this.playlistSegments != null && !this.firstGrabber) {
 	
 				// Tries to pull the playlist if being requested.
 	            this.fetchPlaylist();
@@ -274,20 +283,24 @@ public class DisplayLayer extends RenderLayer {
 					
 					// If we are too slow and the current segment is now out of the playlist.
 					if (this.getCurrentSegment() == null) {
+						System.err.println("current segment: reset playlist");
 						this.resetPlaylist();
 						this.stopGrabber(true);
+						this.soundSource.stop();
 						break;
 					}
 					
 					this.segmentTimestamp += remainingTime;
 					if (this.segmentTimestamp > this.segmentDuration) {
-
+						
 						this.segmentIndex++;
 						MediaSegment seg = this.getCurrentSegment();
 						
 						if (seg == null) {
+							System.err.println("next segment null: reset playlist");
 							this.resetPlaylist();
 							this.stopGrabber(true);
+							this.soundSource.stop();
 							break;
 						}
 						
@@ -307,7 +320,7 @@ public class DisplayLayer extends RenderLayer {
 				
 				if (offsetFromLastSegment <= 1) {
 					// We are at most 1 segment from the end, so request a new playlist.
-					this.requestPlaylist();
+					this.requestPlaylist(now);
 				}
 				
 				if (offsetFromLastSegment >= 1) {
@@ -319,20 +332,17 @@ public class DisplayLayer extends RenderLayer {
 	
 	        if (this.playlistSegments == null) {
 
-				if (this.playlistNextRequestTimestamp < 0) {
+				if (this.asyncPlaylist.requested() || this.asyncPlaylist.active()) {
 					// After request, we go here.
 					this.fetchPlaylist();
 					if (this.playlistSegments == null)
 						return;
-				} else if (currentTime >= this.playlistNextRequestTimestamp) {
-					// In first place with fall here after resetPlaylist()
-					this.playlistNextRequestTimestamp = -1;
-					this.requestPlaylist();
-					return;
 				} else {
-					// If there is no current request or if the current time is too early, just return.
+					this.requestPlaylist(now);
 					return;
 				}
+		
+		        System.out.println("Initializing display layer...");
 
 				double totalDuration = 0.0;
 				for (MediaSegment seg : this.playlistSegments) {
@@ -371,7 +381,11 @@ public class DisplayLayer extends RenderLayer {
 			        }
 			
 		        }
-
+		
+				// We are now starting the segment at 0.0 in every case to avoid
+		        // complicated skip mechanisms for audio frames because we no
+		        // longer need such skips.
+		        this.segmentTimestamp = 0.0;
 				this.firstGrabber = true;
 		
 	        }
@@ -381,19 +395,14 @@ public class DisplayLayer extends RenderLayer {
 				if (this.grabber == null) {
 					return;
 				}
+	            this.firstGrabber = false;
             }
 
 			long segmentTimestampMicros = (long) (this.segmentTimestamp * 1000000);
-
+			
 			Frame frame = this.grabber.grabAt(segmentTimestampMicros);
 			if (frame != null) {
 				this.tex.upload(frame);
-			}
-
-			if (this.firstGrabber) {
-				this.firstGrabber = false;
-				// System.out.println("skip audio before " + this.segmentTimestamp);
-				this.grabber.skipAudioBufferBefore(segmentTimestampMicros);
 			}
 
 			this.grabber.grabAudioAndUpload(this.soundSource);

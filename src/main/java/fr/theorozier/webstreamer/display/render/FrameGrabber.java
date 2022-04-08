@@ -36,7 +36,10 @@ public class FrameGrabber {
 	private long refTimestamp;
 	private long deltaTimestamp;
 	private Frame lastFrame;
-
+	
+	//private long audioRefTimestamp;
+	//private long audioSkipTimestamp;
+	
 	private ShortBuffer tempAudioBuffer;
 	
 	/**
@@ -80,6 +83,9 @@ public class FrameGrabber {
 			this.refTimestamp = 0L;
 			this.deltaTimestamp = 0L;
 			this.lastFrame = null;
+			
+			//this.audioRefTimestamp = -1L;
+			//this.audioSkipTimestamp = 0L; // Disabled by default.
 
 			Frame frame;
 			while ((frame = this.grabber.grab()) != null) {
@@ -89,6 +95,9 @@ public class FrameGrabber {
 					this.lastFrame.timestamp = 0L;
 					break;
 				} else if (frame.samples != null) {
+					/*if (this.audioRefTimestamp == -1L) {
+						this.audioRefTimestamp = frame.timestamp;
+					}*/
 					// It is intentional for audio frames to keep their real timestamp
 					// because we usually get audio frames before the first image frame
 					// and therefor we can't know the relative timestamp.
@@ -211,26 +220,54 @@ public class FrameGrabber {
 			source.enqueueRaw(this.audioBuffers.poll().alBufferId);
 		}
 	}
-
-	/**
-	 * Skip and delete all audio buffers that are timestamped before the given timestamp.
-	 * @param timestamp The relative reference timestamp.
-	 */
-	public void skipAudioBufferBefore(long timestamp) {
-		long realTimestamp = timestamp + this.refTimestamp;
+	
+	/*public void enableAudioSkip(long untilTimestamp) {
+		
+		this.audioSkipTimestamp = untilTimestamp;
+		
+		// Here we drop buffers (already buffered) that are before the given timestamp.
+		
 		// This loop will ultimately break because if we don't break,
 		// we remove an element, if when we reach empty queue, it breaks.
 		while (!this.audioBuffers.isEmpty()) {
 			// In first place we peek (not removing it) to check the timestamp.
-			if (this.audioBuffers.peek().timestamp > realTimestamp) {
+			TimedAudioBuffer ab = this.audioBuffers.peek();
+			if (ab.timestamp - this.audioRefTimestamp > untilTimestamp)
 				break;
-			}
 			// If before timestamp, we remove and then delete it.
 			this.audioBuffers.remove().delete();
 		}
-	}
+		
+	}*/
+
+//	/**
+//	 * Skip and delete all audio buffers that are timestamped before the given timestamp.
+//	 * @param timestamp The relative reference timestamp.
+//	 */
+//	public void skipAudioBufferBefore(long timestamp) {
+//		// This loop will ultimately break because if we don't break,
+//		// we remove an element, if when we reach empty queue, it breaks.
+//		System.out.println("skipping before ts: " + timestamp);
+//		while (!this.audioBuffers.isEmpty()) {
+//			// In first place we peek (not removing it) to check the timestamp.
+//			TimedAudioBuffer ab = this.audioBuffers.peek();
+//			System.out.println("checking frame: " + ab.timestamp + " (audio ref ts: " + this.audioRefTimestamp + ", diff: " + (ab.timestamp - this.audioRefTimestamp) + ")");
+//			if (ab.timestamp - this.audioRefTimestamp > timestamp) {
+//				System.out.println("=> breaking");
+//				break;
+//			}
+//			System.out.println("=> dropped");
+//			// If before timestamp, we remove and then delete it.
+//			this.audioBuffers.remove().delete();
+//		}
+//	}
 
 	private void pushAudioBuffer(Frame frame) {
+		
+		/*if (this.audioSkipTimestamp > 0 && frame.timestamp - this.audioRefTimestamp <= this.audioSkipTimestamp) {
+			System.out.println("skipping audio buffer at " + (frame.timestamp - this.audioRefTimestamp) + " <= " + this.audioSkipTimestamp);
+			return;
+		}*/
 
 		Buffer sample = frame.samples[0];
 		
