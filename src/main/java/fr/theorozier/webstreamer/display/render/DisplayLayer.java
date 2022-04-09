@@ -16,6 +16,10 @@ import net.minecraft.client.render.RenderLayer;
 import net.minecraft.client.render.VertexFormat;
 import net.minecraft.client.render.VertexFormats;
 import net.minecraft.util.math.Vec3i;
+import net.minecraft.util.profiler.ProfileResult;
+import net.minecraft.util.profiler.ProfilerSystem;
+import net.minecraft.util.profiler.ProfilerTiming;
+import net.minecraft.util.profiler.ReadableProfiler;
 import org.bytedeco.javacv.Frame;
 import org.lwjgl.opengl.GL11;
 
@@ -57,6 +61,8 @@ public class DisplayLayer extends RenderLayer {
     
         private final MediaPlaylistParser hlsParser;
 	
+		private final ReadableProfiler profiler;
+		
 	    /** In nanoseconds monotonic, last fetch time. */
 	    private long lastFetchTimestamp = 0;
 	
@@ -90,8 +96,6 @@ public class DisplayLayer extends RenderLayer {
 		private final AsyncMap<URI, FrameGrabber, IOException> asyncGrabbers;
 		
 		// Sound //
-		// /** The sound source. */
-	    // private final DisplaySoundSource soundSource;
 		
 		private final AudioStreamingSource audioSource;
 
@@ -109,14 +113,14 @@ public class DisplayLayer extends RenderLayer {
         Inner(DisplayLayerResources res, DisplayUrl url) {
 
 			this.res = res;
-			
             this.url = url;
             this.tex = new DisplayTexture();
-
             this.hlsParser = new MediaPlaylistParser(ParsingMode.LENIENT);
+			this.profiler = new ProfilerSystem(System::nanoTime, () -> 0, true);
+			// this.profiler = DummyProfiler.INSTANCE;
+	  
 			this.asyncPlaylist = new AsyncProcessor<>(this::requestPlaylistBlocking, true);
 			this.asyncGrabbers = new AsyncMap<>(this::requestGrabberBlocking, FrameGrabber::stop, GRABBER_REQUEST_TIMEOUT);
-			// this.soundSource = new DisplaySoundSource();
 	        
 	        this.audioSource = new AudioStreamingSource();
 
@@ -133,7 +137,6 @@ public class DisplayLayer extends RenderLayer {
 			this.tex.clearGlId();
 			this.asyncGrabbers.cleanup(this.res.getExecutor());
 			this.audioSource.free();
-			// this.soundSource.free();
 
 		}
 
@@ -212,12 +215,13 @@ public class DisplayLayer extends RenderLayer {
 			if (now >= this.playlistNextRequestTimestamp) {
 				this.asyncPlaylist.push(this.url.uri());
 				this.playlistNextRequestTimestamp = now + this.playlistRequestInterval;
-				// System.out.println("requested playlist, interval: " + this.playlistRequestInterval);
 			}
 		}
 	
 		private void fetchPlaylist() {
+			this.profiler.push("fetch_playlist");
 			this.asyncPlaylist.fetch(this.res.getExecutor(), playlist -> {
+				this.profiler.push("success");
 				int newOffset = (int) playlist.mediaSequence();
 				if (newOffset > this.playlistOffset) {
 					this.playlistSegments = playlist.mediaSegments();
@@ -231,10 +235,12 @@ public class DisplayLayer extends RenderLayer {
 						}
 					}
 				}
+				this.profiler.pop();
 			}, exc -> {
 				// If failing, put timestamp to retry later.
 				this.playlistRequestInterval = FAILING_PLAYLIST_REQUEST_INTERVAL;
 			});
+			this.profiler.pop();
 		}
 		
 		// Grabber //
@@ -253,7 +259,7 @@ public class DisplayLayer extends RenderLayer {
 		}
 
 		/**
-		 * Try to pull the given grabber, requested if not already.
+		 * Try to pull the given grabber, requested if not already. <b>The current grabber must be null.</b>
 		 * @param index The segment index to pull.
 		 */
 		private void pullGrabberAndUse(int index, boolean requestIfNotAlready) {
@@ -380,7 +386,9 @@ public class DisplayLayer extends RenderLayer {
 				}
 		
 		        WebStreamerMod.LOGGER.info("Initializing display layer...");
-
+		
+		        this.profiler.push("initialize_layer");
+				
 				double totalDuration = 0.0;
 				for (MediaSegment seg : this.playlistSegments) {
 			        totalDuration += seg.duration();
@@ -418,6 +426,8 @@ public class DisplayLayer extends RenderLayer {
 			
 		        }
 		
+		        this.profiler.pop();
+		
 	        }
 			
 			// Grabbing and uploading section...
@@ -432,30 +442,65 @@ public class DisplayLayer extends RenderLayer {
             }
 
 			long segmentTimestampMicros = (long) (this.segmentTimestamp * 1000000);
-			
+	
+	        this.profiler.push("grab_frame");
 			Frame frame = this.grabber.grabAt(segmentTimestampMicros, this.audioSource::queueBuffer);
+			this.profiler.pop();
+			
 			if (frame != null) {
+				this.profiler.push("upload_image");
 				this.tex.upload(frame);
+				this.profiler.swap("play_audio");
 				this.audioSource.playFrom(frame.timestamp);
+				this.profiler.pop();
 			}
 			
         }
 
         private void tick() {
 	
+	        this.profiler.startTick();
+	        this.profiler.push("tick");
+			
 	        try {
+		        this.profiler.push("fetch");
 				this.fetch();
 	        } catch (IOException e) {
 		        e.printStackTrace();
+	        } finally {
+				this.profiler.pop();
 	        }
 
 			long now = System.nanoTime();
-			if (now - this.lastCleanup >= CLEANUP_INTERVAL) {
+			boolean cleanup = now - this.lastCleanup >= CLEANUP_INTERVAL;
+			if (cleanup) {
+				this.profiler.push("cleanup");
 				this.asyncGrabbers.cleanupTimedOut(this.res.getExecutor(), now);
 				this.lastCleanup = now;
+				this.profiler.pop();
 			}
 	
+	        this.profiler.pop();
+			this.profiler.endTick();
+			
+	        /*if (cleanup) {
+		        ProfileResult res = this.profiler.getResult();
+		        print(res, "root", 0);
+	        }*/
+	
         }
+		
+		private static void print(ProfileResult res, String path, int indent) {
+			for (ProfilerTiming timing : res.getTimings(path)) {
+				if (!timing.name.equals(path)) {
+					StringBuilder builder = new StringBuilder();
+					builder.append(" ".repeat(indent));
+					builder.append("- ").append(timing.name).append(" x").append(timing.visitCount).append(" (").append(timing.totalUsagePercentage).append(" %/").append(timing.parentSectionUsagePercentage).append("%)");
+					WebStreamerMod.LOGGER.info(builder.toString());
+					print(res, path + "\u001e" + timing.name, indent + 2);
+				}
+			}
+		}
 
     }
 	

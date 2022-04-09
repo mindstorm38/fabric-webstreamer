@@ -431,7 +431,7 @@ public class DisplayBlockScreen extends Screen {
 
         public QualitySliderWidget(int x, int y, int width, int height, QualitySliderWidget previousSlider) {
             super(x, y, width, height, LiteralText.EMPTY, 0.0);
-            if (previousSlider != null) {
+            if (previousSlider != null && previousSlider.qualities != null) {
                 this.setQualities(previousSlider.qualities);
                 this.qualityIndex = previousSlider.qualityIndex;
                 this.value = (double) this.qualityIndex  / (double) (this.qualities.size() - 1);

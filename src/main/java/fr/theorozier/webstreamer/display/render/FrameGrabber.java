@@ -163,7 +163,7 @@ public class FrameGrabber {
 				return null;
 			}
 		}
-
+		
 		Frame frame;
 		while ((frame = this.grabber.grab()) != null) {
 			if (frame.image != null) {
