@@ -4,7 +4,7 @@
   "version": "${version}",
 
   "name": "WebStreamer",
-  "description": "An mod that let you ",
+  "description": "A mod that let you display web streaming in HLS format. Currently supporting raw HLS and Twitch.",
   "authors": [
     "Theo Rozier (Mindstorm38)"
   ],
