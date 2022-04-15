@@ -316,7 +316,7 @@ public class DisplayLayer extends RenderLayer {
 					
 					// If we are too slow and the current segment is now out of the playlist.
 					if (this.getCurrentSegment() == null) {
-						// System.err.println("current segment: reset playlist");
+						WebStreamerMod.LOGGER.warn("No current segment, reset playlist and grabber");
 						resetPlaylist = true;
 						resetGrabber = true;
 						break;
@@ -329,7 +329,7 @@ public class DisplayLayer extends RenderLayer {
 						MediaSegment seg = this.getCurrentSegment();
 						
 						if (seg == null) {
-							// System.err.println("next segment null: reset playlist");
+							WebStreamerMod.LOGGER.warn("No next segment, reset playlist and grabber");
 							resetPlaylist = true;
 							resetGrabber = true;
 							break;
@@ -385,7 +385,7 @@ public class DisplayLayer extends RenderLayer {
 					return;
 				}
 		
-		        WebStreamerMod.LOGGER.info("Initializing display layer...");
+		        WebStreamerMod.LOGGER.info("Initializing display layer... Found {} segments.", this.playlistSegments.size());
 		
 		        this.profiler.push("initialize_layer");
 				
