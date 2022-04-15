@@ -27,11 +27,11 @@ public class DisplayLayerResources {
 	/** 8 Mio buffer for pre-storing whole TransportStream file. */
 	private static final int RAW_FILE_BUFFER_SIZE = 1 << 23;
 	/** Limit to 256 Mio of raw file buffers. */
-	private static final int RAW_FILE_BUFFER_LIMIT = 32;
+	private static final int RAW_FILE_BUFFER_LIMIT = 16;
 	/** 8 Kio buffer for converting (16 or 8 bits) stereo to mono 16 bits audio stream. */
 	private static final int AUDIO_BUFFER_SIZE = 8192;
 	/** Limit to 512 Kio of audio buffers. */
-	private static final int AUDIO_BUFFER_LIMIT = 64;
+	private static final int AUDIO_BUFFER_LIMIT = 32;
 	
 	private final ExecutorService executor = Executors.newFixedThreadPool(2, new ThreadFactory() {
 		private final AtomicInteger counter = new AtomicInteger();

@@ -40,6 +40,12 @@ public class DisplayRenderData {
 		return this.url;
 	}
 	
+	// TODO: Call this when too many IO timeout happens with the current URL.
+	public void resetUrl() {
+		this.lastSource = null;
+		this.url = null;
+	}
+	
 	public float getWidthOffset() {
 		float width = this.display.getWidth();
 		if (width != this.lastWidth) {
