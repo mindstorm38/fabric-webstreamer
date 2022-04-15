@@ -42,7 +42,7 @@ public class DisplayLayer extends RenderLayer {
 	/** The latency forced, avoiding display freezes for loading. */
 	private static final double SAFE_LATENCY = 8.0;
 	/** The timeout for a layer to be considered unused */
-	private static final long LAYER_UNUSED_TIMEOUT = 5L * 1000000000L;
+	private static final long LAYER_UNUSED_TIMEOUT = 15L * 1000000000L;
 	/** The timeout for grabber's request. */
 	private static final long GRABBER_REQUEST_TIMEOUT = 10L * 1000000000L;
 	/** Interval of internal cleanups (unused grabbers). */
