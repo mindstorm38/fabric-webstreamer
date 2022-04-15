@@ -24,4 +24,8 @@ public class Playlist {
 		return qualities;
 	}
 	
+	public PlaylistQuality getQuality(String quality) {
+		return this.qualities.stream().filter(pl -> pl.name().equals(quality)).findFirst().orElse(null);
+	}
+	
 }

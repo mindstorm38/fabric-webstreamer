@@ -322,7 +322,7 @@ public class DisplayBlockScreen extends Screen {
         private TextFieldWidget channelField;
         private QualitySliderWidget qualitySlider;
         
-        private PlaylistQuality firstQuality;
+        private String firstQuality;
 
         private final AsyncProcessor<String, Playlist, TwitchClient.PlaylistException> asyncPlaylist;
         private Playlist playlist;
@@ -413,7 +413,7 @@ public class DisplayBlockScreen extends Screen {
             if (quality == null) {
                 this.source.clearChannelQuality();
             } else if (this.playlist != null) {
-                this.source.setChannelQuality(this.playlist.getChannel(), quality);
+                this.source.setChannelQuality(this.playlist.getChannel(), quality.name());
             }
         }
 
@@ -422,7 +422,7 @@ public class DisplayBlockScreen extends Screen {
         }
 
     }
-
+    
     private static class QualitySliderWidget extends SliderWidget {
 
         private int qualityIndex = -1;
@@ -447,9 +447,9 @@ public class DisplayBlockScreen extends Screen {
             this.updateMessage();
         }
         
-        public void setQuality(PlaylistQuality quality) {
+        public void setQuality(String quality) {
             for (int i = 0; i < this.qualities.size(); i++) {
-                if (this.qualities.get(i).name().equals(quality.name())) {
+                if (this.qualities.get(i).name().equals(quality)) {
                     this.qualityIndex = i;
                     this.value = (double) this.qualityIndex  / (double) (this.qualities.size() - 1);
                     this.updateMessage();
