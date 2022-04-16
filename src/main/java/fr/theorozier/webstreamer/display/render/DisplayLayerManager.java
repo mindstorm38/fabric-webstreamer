@@ -24,7 +24,11 @@ public class DisplayLayerManager {
 
     /** Time in nanoseconds (monotonic) of the last cleanup for unused layers. */
     private long lastCleanup = 0;
-
+    
+    public DisplayLayerResources getResources() {
+        return this.res;
+    }
+    
     public DisplayLayer forSource(DisplayUrl url) {
         DisplayLayer layer = this.layers.get(url.id());
         if (layer == null) {

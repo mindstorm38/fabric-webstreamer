@@ -16,9 +16,7 @@ import net.minecraft.client.render.RenderLayer;
 import net.minecraft.client.render.VertexFormat;
 import net.minecraft.client.render.VertexFormats;
 import net.minecraft.util.math.Vec3i;
-import net.minecraft.util.profiler.ProfileResult;
 import net.minecraft.util.profiler.ProfilerSystem;
-import net.minecraft.util.profiler.ProfilerTiming;
 import net.minecraft.util.profiler.ReadableProfiler;
 import org.bytedeco.javacv.Frame;
 import org.lwjgl.opengl.GL11;
@@ -120,25 +118,34 @@ public class DisplayLayer extends RenderLayer {
 			// this.profiler = DummyProfiler.INSTANCE;
 	  
 			this.asyncPlaylist = new AsyncProcessor<>(this::requestPlaylistBlocking, true);
-			this.asyncGrabbers = new AsyncMap<>(this::requestGrabberBlocking, FrameGrabber::stop, GRABBER_REQUEST_TIMEOUT);
+			this.asyncGrabbers = new AsyncMap<>(this::requestGrabberBlocking, grabber -> {
+				WebStreamerMod.LOGGER.info(makeLog("Stopping requested but unused grabber."));
+				grabber.stop();
+			}, GRABBER_REQUEST_TIMEOUT);
 	        
 	        this.audioSource = new AudioStreamingSource();
 
 			this.resetPlaylist();
 	
-	        WebStreamerMod.LOGGER.info("Allocate display layer for {}", this.url.uri());
+	        WebStreamerMod.LOGGER.info(makeLog("Allocate display layer for {}"), this.url);
 
         }
 
 		private void free() {
 			
-			WebStreamerMod.LOGGER.info("Free display layer for {}", this.url.uri());
+			WebStreamerMod.LOGGER.info(makeLog("Free display layer for {}"), this.url);
 
 			this.tex.clearGlId();
 			this.asyncGrabbers.cleanup(this.res.getExecutor());
 			this.audioSource.free();
 
 		}
+		
+		private String makeLog(String message) {
+			return String.format("[%08X] ", this.url.uri().hashCode()) + message;
+		}
+		
+		// Audio //
 
 		private void resetAudioSource() {
 			if (this.nearestAudioPos != null) {
@@ -229,16 +236,18 @@ public class DisplayLayer extends RenderLayer {
 					if (!this.playlistSegments.isEmpty()) {
 						MediaSegment lastSegment = this.playlistSegments.get(this.playlistSegments.size() - 1);
 						long newInterval = (long) (lastSegment.duration() * 1000000000.0 * 0.7);
-						if (newInterval != this.playlistRequestInterval) {
-							WebStreamerMod.LOGGER.debug("New request interval: {}", newInterval);
+						// Only change request interval if it represents more than 10% of the current interval.
+						if (Math.abs(newInterval - this.playlistRequestInterval) >= this.playlistRequestInterval / 10) {
+							WebStreamerMod.LOGGER.info(makeLog("New request interval: {}"), newInterval);
 							this.playlistRequestInterval = newInterval;
 						}
 					}
 				}
 				this.profiler.pop();
-			}, exc -> {
+			}, e -> {
 				// If failing, put timestamp to retry later.
 				this.playlistRequestInterval = FAILING_PLAYLIST_REQUEST_INTERVAL;
+				WebStreamerMod.LOGGER.info(makeLog("Failed to request playlist, setting interval to {} seconds."), this.playlistRequestInterval / 1000000000, e);
 			});
 			this.profiler.pop();
 		}
@@ -250,7 +259,11 @@ public class DisplayLayer extends RenderLayer {
 			grabber.start();
 			return grabber;
 		}
-		
+	
+	    /**
+	     * Request a grabber at specific index.
+	     * @param index The segment index of the grabber.
+	     */
 		private void requestGrabber(int index) {
 			MediaSegment seg = this.getSegment(index);
 			if (seg != null) {
@@ -262,11 +275,11 @@ public class DisplayLayer extends RenderLayer {
 		 * Try to pull the given grabber, requested if not already. <b>The current grabber must be null.</b>
 		 * @param index The segment index to pull.
 		 */
-		private void pullGrabberAndUse(int index, boolean requestIfNotAlready) {
+		private void pullGrabberAndUse(int index) {
 			boolean requested = this.asyncGrabbers.pull(index, grabber -> {
 				this.grabber = grabber;
-			}, Throwable::printStackTrace);
-			if (!requested && requestIfNotAlready) {
+			}, e -> WebStreamerMod.LOGGER.error(makeLog("Failed to create and start grabber."), e));
+			if (!requested) {
 				this.requestGrabber(index);
 			}
 		}
@@ -281,7 +294,7 @@ public class DisplayLayer extends RenderLayer {
 					try {
 						this.grabber.grabRemaining(this.audioSource::queueBuffer);
 					} catch (IOException e) {
-						e.printStackTrace();
+						WebStreamerMod.LOGGER.error(makeLog("Failed to grab remaining from current grabber."), e);
 					}
 				} else {
 					this.audioSource.stop();
@@ -316,7 +329,7 @@ public class DisplayLayer extends RenderLayer {
 					
 					// If we are too slow and the current segment is now out of the playlist.
 					if (this.getCurrentSegment() == null) {
-						WebStreamerMod.LOGGER.warn("No current segment, reset playlist and grabber");
+						WebStreamerMod.LOGGER.warn(makeLog("No current segment, reset playlist and grabber"));
 						resetPlaylist = true;
 						resetGrabber = true;
 						break;
@@ -329,7 +342,7 @@ public class DisplayLayer extends RenderLayer {
 						MediaSegment seg = this.getCurrentSegment();
 						
 						if (seg == null) {
-							WebStreamerMod.LOGGER.warn("No next segment, reset playlist and grabber");
+							WebStreamerMod.LOGGER.warn(makeLog("No next segment, reset playlist and grabber"));
 							resetPlaylist = true;
 							resetGrabber = true;
 							break;
@@ -385,7 +398,7 @@ public class DisplayLayer extends RenderLayer {
 					return;
 				}
 		
-		        WebStreamerMod.LOGGER.info("Initializing display layer... Found {} segments.", this.playlistSegments.size());
+		        WebStreamerMod.LOGGER.info(makeLog("Initializing display layer... Found {} segments."), this.playlistSegments.size());
 		
 		        this.profiler.push("initialize_layer");
 				
@@ -434,7 +447,7 @@ public class DisplayLayer extends RenderLayer {
 	  
 			// If the grabber is in reset state, try to get it.
             if (this.grabber == null) {
-				this.pullGrabberAndUse(this.segmentIndex, true);
+				this.pullGrabberAndUse(this.segmentIndex);
 				if (this.grabber == null) {
 					// Abort if not ready to use.
 					return;
@@ -466,7 +479,7 @@ public class DisplayLayer extends RenderLayer {
 		        this.profiler.push("fetch");
 				this.fetch();
 	        } catch (IOException e) {
-		        e.printStackTrace();
+				WebStreamerMod.LOGGER.error(makeLog("Failed to fetch."), e);
 	        } finally {
 				this.profiler.pop();
 	        }
@@ -490,7 +503,7 @@ public class DisplayLayer extends RenderLayer {
 	
         }
 		
-		private static void print(ProfileResult res, String path, int indent) {
+		/*private static void print(ProfileResult res, String path, int indent) {
 			for (ProfilerTiming timing : res.getTimings(path)) {
 				if (!timing.name.equals(path)) {
 					StringBuilder builder = new StringBuilder();
@@ -500,7 +513,7 @@ public class DisplayLayer extends RenderLayer {
 					print(res, path + "\u001e" + timing.name, indent + 2);
 				}
 			}
-		}
+		}*/
 
     }
 	

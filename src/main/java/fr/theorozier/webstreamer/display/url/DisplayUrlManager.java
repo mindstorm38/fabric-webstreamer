@@ -12,8 +12,8 @@ public class DisplayUrlManager {
     private final Object2IntArrayMap<URI> urlCache = new Object2IntArrayMap<>();
     private int counter = 0;
 
-    public int allocUri(URI uri) {
-        return this.urlCache.computeIfAbsent(uri, key -> ++counter);
+    public DisplayUrl allocUri(URI uri) {
+        return new DisplayUrl(uri, this.urlCache.computeIfAbsent(uri, key -> ++counter));
     }
 
 }

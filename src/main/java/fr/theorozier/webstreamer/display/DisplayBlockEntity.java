@@ -139,6 +139,11 @@ public class DisplayBlockEntity extends BlockEntity {
         return createNbt();
     }
     
+    /** Utility method to make a log message prefixed by this display's position. */
+    public String makeLog(String message) {
+        return "[" + this.pos.getX() + "/" + this.pos.getY() + "/" + this.pos.getZ() + "] " + message;
+    }
+    
     // Render data //
     
     private final Object cachedRenderDataGuard = new Object();

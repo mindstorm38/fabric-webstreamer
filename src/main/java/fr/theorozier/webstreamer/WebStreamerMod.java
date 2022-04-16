@@ -16,7 +16,7 @@ import org.slf4j.LoggerFactory;
 
 public class WebStreamerMod implements ModInitializer {
 
-    public static final Logger LOGGER = LoggerFactory.getLogger("webstreamer");
+    public static final Logger LOGGER = LoggerFactory.getLogger("WebStreamer");
 
     public static Block DISPLAY_BLOCK;
     public static DisplayBlockItem DISPLAY_ITEM;

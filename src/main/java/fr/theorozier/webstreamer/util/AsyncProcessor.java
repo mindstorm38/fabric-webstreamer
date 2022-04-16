@@ -19,12 +19,23 @@ import java.util.function.Consumer;
 public class AsyncProcessor<FROM, TO, EXC extends Exception> {
 
     private final Converter<FROM, TO, EXC> converter;
+    
+    /** True to allow two equal values to be pushed one after another. */
     private final boolean allowDuplicates;
 
-    private FROM pending;
-    private FROM requested;
+    private FROM requestedFrom;
+    private boolean requested;
+    
     private Future<TO> future;
-
+    private FROM futureFrom;
+    
+    /**
+     * Construct a new asynchronous value processor.
+     * @param converter A converter from input to output type with a specified exception type.
+     * @param allowDuplicates Set to true if this processor should accept duplicated value when calling {@link #push}.
+     *                        This could be useful if the converter function is not stable and can return different
+     *                        values for the same input depending on the context. For example with HTTP requests.
+     */
     public AsyncProcessor(Converter<FROM, TO, EXC> converter, boolean allowDuplicates) {
         this.converter = converter;
         this.allowDuplicates = allowDuplicates;
@@ -43,26 +54,26 @@ public class AsyncProcessor<FROM, TO, EXC extends Exception> {
             if (Thread.interrupted())
                 return;
             try {
-                onSuccess.accept(this.pending, this.future.get());
+                onSuccess.accept(this.futureFrom, this.future.get());
             } catch (InterruptedException | CancellationException e) {
                 // Cancel should not happen.
             } catch (ExecutionException ee) {
                 try {
-                    onError.accept(this.pending, (EXC) ee.getCause());
+                    onError.accept(this.futureFrom, (EXC) ee.getCause());
                 } catch (ClassCastException cce) {
                     // In case if runtime exceptions.
                 }
             } finally {
                 this.future = null;
-                this.pending = null;
+                this.futureFrom = null;
             }
         }
 
-        if (this.future == null && this.requested != null) {
-            FROM from = this.requested;
-            this.pending = from;
+        if (this.future == null && this.requested) {
+            FROM from = this.requestedFrom;
+            this.futureFrom = from;
             this.future = executor.submit(() -> this.converter.convert(from));
-            this.requested = null;
+            this.requested = false;
         }
 
     }
@@ -73,13 +84,24 @@ public class AsyncProcessor<FROM, TO, EXC extends Exception> {
 
     public void push(FROM from) {
         Objects.requireNonNull(from);
-        if (this.allowDuplicates || !Objects.equals(from, this.requested)) {
-            this.requested = from;
+        if (this.allowDuplicates || this.requestedFrom == null || !this.requestedFrom.equals(from)) {
+            this.requestedFrom = from;
+            this.requested = true;
         }
     }
     
+    /**
+     * If a value is currently pushed, remove it. Doing so will prevent it from being processed by a call to
+     * {@link #fetch}. This also reset the last requested value, allowing potential duplicate values in
+     * {@link #push}.
+     */
+    public void reset() {
+        this.requestedFrom = null;
+        this.requested = false;
+    }
+    
     public boolean requested() {
-        return this.requested != null;
+        return this.requested;
     }
     
     public boolean active() {

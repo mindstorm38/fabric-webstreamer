@@ -3,7 +3,6 @@ package fr.theorozier.webstreamer.display.source;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.nbt.NbtString;
 
-import java.net.MalformedURLException;
 import java.net.URI;
 
 public class RawDisplaySource implements DisplaySource {

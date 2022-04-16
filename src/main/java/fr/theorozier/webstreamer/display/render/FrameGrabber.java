@@ -116,7 +116,7 @@ public class FrameGrabber {
 	public void stop() {
 
 		if (this.grabber == null || this.buffer == null || this.tempAudioBuffer == null) {
-			throw new IllegalStateException();
+			throw new IllegalStateException("Frame grabber is not started.");
 		}
 		
 		try {
@@ -236,7 +236,7 @@ public class FrameGrabber {
 				try {
 					this.buffer.put(buf);
 				} catch (BufferOverflowException e) {
-					WebStreamerMod.LOGGER.debug("pos before crashing: {}, incoming buf: {}", this.buffer.position(), buf.remaining());
+					WebStreamerMod.LOGGER.error("Cannot fill the full raw file buffer because of overflow. current pos: {}, incoming buf: {}", this.buffer.position(), buf.remaining());
 					this.future.completeExceptionally(e);
 				}
 			}

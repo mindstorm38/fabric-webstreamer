@@ -30,11 +30,13 @@ public class DisplayBlockEntityRenderer implements BlockEntityRenderer<DisplayBl
     public void render(DisplayBlockEntity entity, float tickDelta, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light, int overlay) {
     
         DisplayRenderData renderData = (DisplayRenderData) entity.getRenderData();
+        DisplayLayerManager layerManager = WebStreamerClientMod.DISPLAY_LAYERS;
         
-        DisplayUrl url = renderData.getUrl();
+        DisplayUrl url = renderData.getUrl(layerManager.getResources().getExecutor());
+        
         if (url != null) {
     
-            DisplayLayer layer = WebStreamerClientMod.DISPLAY_LAYERS.forSource(url);
+            DisplayLayer layer = layerManager.forSource(url);
 
             if (layer != null) {
 
