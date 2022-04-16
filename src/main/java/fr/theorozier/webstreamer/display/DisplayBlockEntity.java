@@ -2,6 +2,7 @@ package fr.theorozier.webstreamer.display;
 
 import fr.theorozier.webstreamer.WebStreamerMod;
 import fr.theorozier.webstreamer.display.source.DisplaySource;
+import fr.theorozier.webstreamer.display.source.NullDisplaySource;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.entity.BlockEntity;
 import net.minecraft.nbt.NbtCompound;
@@ -13,9 +14,11 @@ import net.minecraft.network.packet.s2c.play.BlockEntityUpdateS2CPacket;
 import net.minecraft.util.math.BlockPos;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.Objects;
+
 public class DisplayBlockEntity extends BlockEntity {
     
-    private DisplaySource source;
+    private DisplaySource source = NullDisplaySource.INSTANCE;
     private float width = 1;
     private float height = 1;
     private float audioDistance = 10f;
@@ -26,6 +29,7 @@ public class DisplayBlockEntity extends BlockEntity {
     }
     
     public void setSource(DisplaySource source) {
+        Objects.requireNonNull(source);
         this.source = source;
         this.markDirty();
     }
@@ -121,7 +125,7 @@ public class DisplayBlockEntity extends BlockEntity {
                     this.source.readNbt(displayNbt);
                 }
             } else {
-                this.source = null;
+                this.source = NullDisplaySource.INSTANCE;
             }
     
         }

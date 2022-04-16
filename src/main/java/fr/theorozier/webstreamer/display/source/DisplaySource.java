@@ -18,7 +18,7 @@ public interface DisplaySource {
         return switch (type) {
             case RawDisplaySource.TYPE -> new RawDisplaySource();
             case TwitchDisplaySource.TYPE -> new TwitchDisplaySource();
-            default -> null;
+            default -> NullDisplaySource.INSTANCE;
         };
     }
     
