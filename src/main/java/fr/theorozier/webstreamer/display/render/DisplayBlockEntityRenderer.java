@@ -1,20 +1,28 @@
 package fr.theorozier.webstreamer.display.render;
 
 import fr.theorozier.webstreamer.WebStreamerClientMod;
+import fr.theorozier.webstreamer.WebStreamerMod;
 import fr.theorozier.webstreamer.display.DisplayBlockEntity;
 import fr.theorozier.webstreamer.display.url.DisplayUrl;
+import fr.theorozier.webstreamer.mixin.WorldRendererInvoker;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.render.GameRenderer;
+import net.minecraft.client.render.RenderLayer;
 import net.minecraft.client.render.VertexConsumer;
 import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.render.block.entity.BlockEntityRenderer;
 import net.minecraft.client.render.block.entity.BlockEntityRendererFactory;
 import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.item.ItemStack;
 import net.minecraft.state.property.Properties;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Matrix4f;
+import net.minecraft.util.shape.VoxelShape;
+
+import java.util.stream.StreamSupport;
 
 @Environment(EnvType.CLIENT)
 public class DisplayBlockEntityRenderer implements BlockEntityRenderer<DisplayBlockEntity> {
@@ -33,6 +41,25 @@ public class DisplayBlockEntityRenderer implements BlockEntityRenderer<DisplayBl
         DisplayLayerManager layerManager = WebStreamerClientMod.DISPLAY_LAYERS;
         
         DisplayUrl url = renderData.getUrl(layerManager.getResources().getExecutor());
+    
+        PlayerEntity player = MinecraftClient.getInstance().player;
+        
+        if (player != null) {
+            
+            boolean hasDisplayEquipped = StreamSupport.stream(player.getItemsEquipped().spliterator(), false)
+                    .map(ItemStack::getItem)
+                    .anyMatch(WebStreamerMod.DISPLAY_ITEM::equals);
+            
+            if (hasDisplayEquipped) {
+                VoxelShape displayShape = entity.getCachedState().getOutlineShape(entity.getWorld(), entity.getPos());
+                if (displayShape != null) {
+                    matrices.push();
+                    WorldRendererInvoker.drawShapeOutline(matrices, vertexConsumers.getBuffer(RenderLayer.getLines()), displayShape, 0, 0, 0, 235 / 255f, 168 / 255f, 0f, 1f);
+                    matrices.pop();
+                }
+            }
+            
+        }
         
         if (url != null) {
     
@@ -42,8 +69,7 @@ public class DisplayBlockEntityRenderer implements BlockEntityRenderer<DisplayBl
 
                 matrices.push();
 
-                MatrixStack.Entry entry = matrices.peek();
-                Matrix4f positionMatrix = entry.getPositionMatrix();
+                Matrix4f positionMatrix = matrices.peek().getPositionMatrix();
 
                 VertexConsumer buffer = vertexConsumers.getBuffer(layer);
 

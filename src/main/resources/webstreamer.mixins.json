@@ -7,6 +7,7 @@
   ],
   "client": [
     "WorldRendererMixin",
+    "WorldRendererInvoker",
     "ClientPlayerEntityMixin"
   ],
   "injectors": {

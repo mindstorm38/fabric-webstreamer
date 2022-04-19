@@ -29,8 +29,9 @@ public class DisplayBlock extends BlockWithEntity {
     public DisplayBlock() {
         super(Settings.of(Material.GLASS)
                 .sounds(BlockSoundGroup.GLASS)
-                .strength(0.3F)
+                .strength(-1.0f, 3600000.0f)
                 .requiresTool()
+                .dropsNothing()
                 .nonOpaque());
     }
     

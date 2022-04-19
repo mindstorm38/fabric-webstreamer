@@ -63,7 +63,7 @@ public class DisplayRenderData {
 		float width = this.display.getWidth();
 		if (width != this.lastWidth) {
 			this.lastWidth = width;
-			this.widthOffset = (this.display.getWidth() - 1) / -2f;
+			this.widthOffset = this.display.calcWidthOffset();
 		}
 		return widthOffset;
 	}
@@ -72,7 +72,7 @@ public class DisplayRenderData {
 		float height = this.display.getHeight();
 		if (height != this.lastHeight) {
 			this.lastHeight = height;
-			this.heightOffset = (this.display.getHeight() - 1) / -2f;
+			this.heightOffset = this.display.calcHeightOffset();
 		}
 		return heightOffset;
 	}
