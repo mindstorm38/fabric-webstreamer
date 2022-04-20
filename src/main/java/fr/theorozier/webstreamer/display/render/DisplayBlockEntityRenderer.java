@@ -8,6 +8,7 @@ import fr.theorozier.webstreamer.mixin.WorldRendererInvoker;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.font.TextRenderer;
 import net.minecraft.client.render.GameRenderer;
 import net.minecraft.client.render.RenderLayer;
 import net.minecraft.client.render.VertexConsumer;
@@ -20,6 +21,7 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.state.property.Properties;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Matrix4f;
+import net.minecraft.util.math.Vec3f;
 import net.minecraft.util.shape.VoxelShape;
 
 import java.util.stream.StreamSupport;
@@ -28,10 +30,11 @@ import java.util.stream.StreamSupport;
 public class DisplayBlockEntityRenderer implements BlockEntityRenderer<DisplayBlockEntity> {
 
     private final GameRenderer gameRenderer = MinecraftClient.getInstance().gameRenderer;
-
+    private final TextRenderer textRenderer;
+    
     @SuppressWarnings("unused")
     public DisplayBlockEntityRenderer(BlockEntityRendererFactory.Context ctx) {
-    
+        this.textRenderer = ctx.getTextRenderer();
     }
 
     @Override
@@ -44,31 +47,34 @@ public class DisplayBlockEntityRenderer implements BlockEntityRenderer<DisplayBl
     
         PlayerEntity player = MinecraftClient.getInstance().player;
         
+        String statusText = null;
+        
         if (player != null) {
-            
+    
             boolean hasDisplayEquipped = StreamSupport.stream(player.getItemsEquipped().spliterator(), false)
                     .map(ItemStack::getItem)
                     .anyMatch(WebStreamerMod.DISPLAY_ITEM::equals);
-            
+    
             if (hasDisplayEquipped) {
+        
                 VoxelShape displayShape = entity.getCachedState().getOutlineShape(entity.getWorld(), entity.getPos());
                 if (displayShape != null) {
                     matrices.push();
                     WorldRendererInvoker.drawShapeOutline(matrices, vertexConsumers.getBuffer(RenderLayer.getLines()), displayShape, 0, 0, 0, 235 / 255f, 168 / 255f, 0f, 1f);
                     matrices.pop();
                 }
+        
+                statusText = entity.getSource().getStatus();
+        
             }
             
         }
         
         if (url != null) {
-    
             DisplayLayer layer = layerManager.forSource(url);
-
             if (layer != null) {
-
+    
                 matrices.push();
-
                 Matrix4f positionMatrix = matrices.peek().getPositionMatrix();
 
                 VertexConsumer buffer = vertexConsumers.getBuffer(layer);
@@ -111,10 +117,44 @@ public class DisplayBlockEntityRenderer implements BlockEntityRenderer<DisplayBl
                         buffer.vertex(positionMatrix, 0.95f, he, ws).texture(0, 0).next();
                     }
                 }
-
+                
                 matrices.pop();
-
+                
+            } else {
+                statusText = "No more layer available";
             }
+        } else {
+            statusText = "No URL";
+        }
+    
+        if (statusText != null) {
+    
+            matrices.push();
+    
+            final float scaleFactor = 128f / Math.min(entity.getWidth(), entity.getHeight());
+            final float scale = 1f / scaleFactor;
+            final float halfWidth = this.textRenderer.getWidth(statusText) / scaleFactor / 2f;
+            final float halfHeight = this.textRenderer.fontHeight / scaleFactor / 2f;
+    
+            switch (entity.getCachedState().get(Properties.HORIZONTAL_FACING)) {
+                case NORTH -> matrices.translate(0.5f + halfWidth, 0.5f + halfHeight, 0.85f);
+                case SOUTH -> {
+                    matrices.multiply(Vec3f.POSITIVE_Y.getDegreesQuaternion(180));
+                    matrices.translate(-0.5f + halfWidth, 0.5f + halfHeight, -0.15f);
+                }
+                case EAST -> {
+                    matrices.multiply(Vec3f.POSITIVE_Y.getDegreesQuaternion(270));
+                    matrices.translate(0.5f + halfWidth, 0.5f + halfHeight, -0.15f);
+                }
+                case WEST -> {
+                    matrices.multiply(Vec3f.POSITIVE_Y.getDegreesQuaternion(90));
+                    matrices.translate(-0.5f + halfWidth, 0.5f + halfHeight, 0.85f);
+                }
+            }
+    
+            matrices.scale(-scale, -scale, 1f);
+            this.textRenderer.draw(statusText, 0f, 0f, 0x00ffffff, false, matrices.peek().getPositionMatrix(), vertexConsumers, false, 0xBB222222, light, false);
+            matrices.pop();
     
         }
 

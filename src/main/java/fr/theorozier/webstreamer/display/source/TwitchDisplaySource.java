@@ -64,6 +64,11 @@ public class TwitchDisplaySource implements DisplaySource {
     }
     
     @Override
+    public String getStatus() {
+        return this.channel + " / " + this.quality;
+    }
+    
+    @Override
     public void writeNbt(NbtCompound nbt) {
         if (this.channel != null && this.quality != null) {
             nbt.putString("channel", this.channel);

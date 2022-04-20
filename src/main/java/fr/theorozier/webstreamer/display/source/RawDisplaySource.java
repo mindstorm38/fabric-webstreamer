@@ -32,6 +32,11 @@ public class RawDisplaySource implements DisplaySource {
     }
     
     @Override
+    public String getStatus() {
+        return this.uri.toString();
+    }
+    
+    @Override
     public void writeNbt(NbtCompound nbt) {
         if (this.uri != null) {
             nbt.putString("url", this.uri.toString());

@@ -23,6 +23,11 @@ public class NullDisplaySource implements DisplaySource {
 	}
 	
 	@Override
+	public String getStatus() {
+		return "NONE";
+	}
+	
+	@Override
 	public void writeNbt(NbtCompound nbt) {
 	
 	}

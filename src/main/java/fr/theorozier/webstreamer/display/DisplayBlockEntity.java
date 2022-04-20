@@ -12,6 +12,7 @@ import net.minecraft.network.Packet;
 import net.minecraft.network.listener.ClientPlayPacketListener;
 import net.minecraft.network.packet.s2c.play.BlockEntityUpdateS2CPacket;
 import net.minecraft.util.math.BlockPos;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.Objects;
@@ -28,12 +29,13 @@ public class DisplayBlockEntity extends BlockEntity {
         super(WebStreamerMod.DISPLAY_BLOCK_ENTITY, pos, state);
     }
     
-    public void setSource(DisplaySource source) {
+    public void setSource(@NotNull DisplaySource source) {
         Objects.requireNonNull(source);
         this.source = source;
         this.markDirty();
     }
     
+    @NotNull
     public DisplaySource getSource() {
         return source;
     }
@@ -129,9 +131,7 @@ public class DisplayBlockEntity extends BlockEntity {
     
             if (displayNbt.get("type") instanceof NbtString type) {
                 this.source = DisplaySource.newSourceFromType(type.asString());
-                if (this.source != null) {
-                    this.source.readNbt(displayNbt);
-                }
+                this.source.readNbt(displayNbt);
             } else {
                 this.source = NullDisplaySource.INSTANCE;
             }
