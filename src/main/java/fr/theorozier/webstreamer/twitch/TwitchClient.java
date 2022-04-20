@@ -123,17 +123,19 @@ public class TwitchClient {
 	}
 	
 	public Playlist requestPlaylist(String channel) throws PlaylistException {
-		Playlist playlist = this.cache.get(channel);
-		if (playlist == null) {
-			try {
-				playlist = this.requestPlaylistInternal(channel);
-				this.cache.put(channel, playlist);
-			} catch (IOException | URISyntaxException | InterruptedException e) {
-				e.printStackTrace();
-				throw new PlaylistException(PlaylistExceptionType.UNKNOWN);
+		synchronized (this.cache) {
+			Playlist playlist = this.cache.get(channel);
+			if (playlist == null) {
+				try {
+					playlist = this.requestPlaylistInternal(channel);
+					this.cache.put(channel, playlist);
+				} catch (IOException | URISyntaxException | InterruptedException e) {
+					e.printStackTrace();
+					throw new PlaylistException(PlaylistExceptionType.UNKNOWN);
+				}
 			}
+			return playlist;
 		}
-		return playlist;
 	}
 	
 	public enum PlaylistExceptionType {
