@@ -19,6 +19,9 @@ import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.ItemStack;
 import net.minecraft.state.property.Properties;
+import net.minecraft.text.LiteralText;
+import net.minecraft.text.Text;
+import net.minecraft.text.TranslatableText;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Matrix4f;
 import net.minecraft.util.math.Vec3f;
@@ -28,7 +31,10 @@ import java.util.stream.StreamSupport;
 
 @Environment(EnvType.CLIENT)
 public class DisplayBlockEntityRenderer implements BlockEntityRenderer<DisplayBlockEntity> {
-
+    
+    private static final Text NO_LAYER_AVAILABLE_TEXT = new TranslatableText("gui.webstreamer.display.status.noLayerAvailable");
+    private static final Text NO_URL_TEXT = new TranslatableText("gui.webstreamer.display.status.noUrl");
+    
     private final GameRenderer gameRenderer = MinecraftClient.getInstance().gameRenderer;
     private final TextRenderer textRenderer;
     
@@ -47,7 +53,7 @@ public class DisplayBlockEntityRenderer implements BlockEntityRenderer<DisplayBl
     
         PlayerEntity player = MinecraftClient.getInstance().player;
         
-        String statusText = null;
+        Text statusText = null;
         
         if (player != null) {
     
@@ -64,7 +70,7 @@ public class DisplayBlockEntityRenderer implements BlockEntityRenderer<DisplayBl
                     matrices.pop();
                 }
         
-                statusText = entity.getSource().getStatus();
+                statusText = new LiteralText(entity.getSource().getStatus());
         
             }
             
@@ -121,10 +127,10 @@ public class DisplayBlockEntityRenderer implements BlockEntityRenderer<DisplayBl
                 matrices.pop();
                 
             } else {
-                statusText = "No more layer available";
+                statusText = NO_LAYER_AVAILABLE_TEXT;
             }
         } else {
-            statusText = "No URL";
+            statusText = NO_URL_TEXT;
         }
     
         if (statusText != null) {
@@ -153,7 +159,7 @@ public class DisplayBlockEntityRenderer implements BlockEntityRenderer<DisplayBl
             }
     
             matrices.scale(-scale, -scale, 1f);
-            this.textRenderer.draw(statusText, 0f, 0f, 0x00ffffff, false, matrices.peek().getPositionMatrix(), vertexConsumers, false, 0xBB222222, light, false);
+            this.textRenderer.draw(statusText, 0f, 0f, 0x00ffffff, false, matrices.peek().getPositionMatrix(), vertexConsumers, false, 0xBB222222, light);
             matrices.pop();
     
         }

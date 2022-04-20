@@ -16,5 +16,7 @@
   "gui.webstreamer.display.error.noToken": "Error: no token",
   "gui.webstreamer.display.error.channelNotFound": "Error: channel not found",
   "gui.webstreamer.display.error.channelOffline": "Error: channel offline",
-  "gui.webstreamer.display.error.unknown": "Unknown error: {0}"
+  "gui.webstreamer.display.error.unknown": "Unknown error: {0}",
+  "gui.webstreamer.display.status.noLayerAvailable": "No render layer available",
+  "gui.webstreamer.display.status.noUrl": "No URL"
 }
