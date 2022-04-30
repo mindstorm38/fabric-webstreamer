@@ -77,7 +77,7 @@ public class DisplayBlockEntityRenderer implements BlockEntityRenderer<DisplayBl
         }
         
         if (url != null) {
-            DisplayLayer layer = layerManager.forSource(url);
+            DisplayLayerHls layer = layerManager.forSource(url);
             if (layer != null) {
     
                 matrices.push();

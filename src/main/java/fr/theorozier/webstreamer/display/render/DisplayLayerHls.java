@@ -35,7 +35,7 @@ import java.util.stream.Stream;
  * this is not checked so user have to check this!
  */
 @Environment(EnvType.CLIENT)
-public class DisplayLayer extends RenderLayer {
+public class DisplayLayerHls extends RenderLayer {
 
 	/** The latency forced, avoiding display freezes for loading. */
 	private static final double SAFE_LATENCY = 8.0;
@@ -519,12 +519,12 @@ public class DisplayLayer extends RenderLayer {
 	
 	private final Inner inner;
 
-    public DisplayLayer(DisplayLayerResources res, DisplayUrl url) {
+    public DisplayLayerHls(DisplayLayerResources res, DisplayUrl url) {
 		// We are using an inner class just for the "super" call to be first.
         this(new Inner(res, url));
     }
 
-    private DisplayLayer(Inner inner) {
+    private DisplayLayerHls(Inner inner) {
 		
         super("display", VertexFormats.POSITION_TEXTURE, VertexFormat.DrawMode.QUADS,
                 256, false, true,
@@ -554,9 +554,6 @@ public class DisplayLayer extends RenderLayer {
 	 */
 	public void displayTick() {
 		this.inner.tick();
-	}
-
-	public void resetAudioSource() {
 		this.inner.resetAudioSource();
 	}
 

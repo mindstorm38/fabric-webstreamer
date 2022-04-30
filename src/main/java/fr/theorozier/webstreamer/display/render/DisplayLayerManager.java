@@ -17,7 +17,7 @@ public class DisplayLayerManager {
     /** Interval of cleanups for unused display layers. */
     private static final long CLEANUP_INTERVAL = 5L * 1000000000L;
 
-    private final Int2ObjectOpenHashMap<DisplayLayer> layers = new Int2ObjectOpenHashMap<>();
+    private final Int2ObjectOpenHashMap<DisplayLayerHls> layers = new Int2ObjectOpenHashMap<>();
     
     /** Common pools for shared and reusable heavy buffers. */
     private final DisplayLayerResources res = new DisplayLayerResources();
@@ -29,13 +29,13 @@ public class DisplayLayerManager {
         return this.res;
     }
     
-    public DisplayLayer forSource(DisplayUrl url) {
-        DisplayLayer layer = this.layers.get(url.id());
+    public DisplayLayerHls forSource(DisplayUrl url) {
+        DisplayLayerHls layer = this.layers.get(url.id());
         if (layer == null) {
             if (this.layers.size() >= MAX_LAYERS_COUNT) {
                 return null;
             }
-            layer = new DisplayLayer(this.res, url);
+            layer = new DisplayLayerHls(this.res, url);
             this.layers.put(url.id(), layer);
         }
         return layer;
@@ -48,10 +48,7 @@ public class DisplayLayerManager {
     public void tick() {
 
         RenderSystem.assertOnRenderThread();
-        this.layers.values().forEach(layer -> {
-            layer.displayTick();
-            layer.resetAudioSource();
-        });
+        this.layers.values().forEach(DisplayLayerHls::displayTick);
 
         long now = System.nanoTime();
         if (now - this.lastCleanup >= CLEANUP_INTERVAL) {
@@ -80,7 +77,7 @@ public class DisplayLayerManager {
      * Free and remove all layers.
      */
     public void clear() {
-        this.layers.values().forEach(DisplayLayer::displayFree);
+        this.layers.values().forEach(DisplayLayerHls::displayFree);
         this.layers.clear();
     }
     
