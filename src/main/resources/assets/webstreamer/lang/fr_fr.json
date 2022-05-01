@@ -4,7 +4,7 @@
   "gui.webstreamer.display.width": "Largeur",
   "gui.webstreamer.display.height": "Hauteur",
   "gui.webstreamer.display.sourceType": "Type de source",
-  "gui.webstreamer.display.sourceType.raw": "HLS brut",
+  "gui.webstreamer.display.sourceType.raw": "URL brut",
   "gui.webstreamer.display.sourceType.twitch": "Twitch",
   "gui.webstreamer.display.url": "URL",
   "gui.webstreamer.display.channel": "Chaîne",
