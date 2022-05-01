@@ -5,6 +5,7 @@ import fr.theorozier.webstreamer.display.url.DisplayUrl;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * This class is responsible for caching and keeping the number of layer to the minimum.
@@ -17,7 +18,7 @@ public class DisplayLayerManager {
     /** Interval of cleanups for unused display layers. */
     private static final long CLEANUP_INTERVAL = 5L * 1000000000L;
 
-    private final Int2ObjectOpenHashMap<DisplayLayerHls> layers = new Int2ObjectOpenHashMap<>();
+    private final Int2ObjectOpenHashMap<DisplayLayer> layers = new Int2ObjectOpenHashMap<>();
     
     /** Common pools for shared and reusable heavy buffers. */
     private final DisplayLayerResources res = new DisplayLayerResources();
@@ -29,13 +30,31 @@ public class DisplayLayerManager {
         return this.res;
     }
     
-    public DisplayLayerHls forSource(DisplayUrl url) {
-        DisplayLayerHls layer = this.layers.get(url.id());
+    @NotNull
+    private DisplayLayer newLayerForUrl(DisplayUrl url) throws UnknownFormatException {
+        String path = url.uri().getPath();
+        if (path.endsWith(".m3u8")) {
+            return new DisplayLayerHls(url, this.res);
+        } else {
+            throw new UnknownFormatException();
+        }
+    }
+    
+    /**
+     * Get a display layer from the given URL, the same URL returns the same layer.
+     * @param url The display URL.
+     * @return The layer specific to the given URL.
+     * @throws OutOfLayerException Maximum layers count has been reached.
+     * @throws UnknownFormatException The URL format is not recognized.
+     */
+    @NotNull
+    public DisplayLayer getLayerForUrl(DisplayUrl url) throws OutOfLayerException, UnknownFormatException {
+        DisplayLayer layer = this.layers.get(url.id());
         if (layer == null) {
             if (this.layers.size() >= MAX_LAYERS_COUNT) {
-                return null;
+                throw new OutOfLayerException();
             }
-            layer = new DisplayLayerHls(this.res, url);
+            layer = this.newLayerForUrl(url);
             this.layers.put(url.id(), layer);
         }
         return layer;
@@ -48,7 +67,7 @@ public class DisplayLayerManager {
     public void tick() {
 
         RenderSystem.assertOnRenderThread();
-        this.layers.values().forEach(DisplayLayerHls::displayTick);
+        this.layers.values().forEach(DisplayLayer::tick);
 
         long now = System.nanoTime();
         if (now - this.lastCleanup >= CLEANUP_INTERVAL) {
@@ -65,8 +84,8 @@ public class DisplayLayerManager {
         RenderSystem.assertOnRenderThread();
         long now = System.nanoTime();
         this.layers.values().removeIf(displayLayer -> {
-            if (displayLayer.displayIsUnused(now)) {
-                displayLayer.displayFree();
+            if (displayLayer.isUnused(now)) {
+                displayLayer.free();
                 return true;
             }
             return false;
@@ -77,8 +96,11 @@ public class DisplayLayerManager {
      * Free and remove all layers.
      */
     public void clear() {
-        this.layers.values().forEach(DisplayLayerHls::displayFree);
+        this.layers.values().forEach(DisplayLayer::free);
         this.layers.clear();
     }
+    
+    public static class OutOfLayerException extends Exception {}
+    public static class UnknownFormatException extends Exception {}
     
 }

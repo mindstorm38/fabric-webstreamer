@@ -18,5 +18,6 @@
   "gui.webstreamer.display.error.channelOffline": "Erreur: chaîne hors ligne",
   "gui.webstreamer.display.error.unknown": "Erreur inconnue: {0}",
   "gui.webstreamer.display.status.noLayerAvailable": "Plus de couche de rendu disponible",
+  "gui.webstreamer.display.status.unknownFormat": "Le format de l'URL n'est pas reconnu",
   "gui.webstreamer.display.status.noUrl": "Pas d'URL"
 }

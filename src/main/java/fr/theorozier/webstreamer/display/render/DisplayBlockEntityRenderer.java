@@ -33,6 +33,7 @@ import java.util.stream.StreamSupport;
 public class DisplayBlockEntityRenderer implements BlockEntityRenderer<DisplayBlockEntity> {
     
     private static final Text NO_LAYER_AVAILABLE_TEXT = new TranslatableText("gui.webstreamer.display.status.noLayerAvailable");
+    private static final Text UNKNOWN_FORMAT_TEXT = new TranslatableText("gui.webstreamer.display.status.unknownFormat");
     private static final Text NO_URL_TEXT = new TranslatableText("gui.webstreamer.display.status.noUrl");
     
     private final GameRenderer gameRenderer = MinecraftClient.getInstance().gameRenderer;
@@ -77,26 +78,27 @@ public class DisplayBlockEntityRenderer implements BlockEntityRenderer<DisplayBl
         }
         
         if (url != null) {
-            DisplayLayerHls layer = layerManager.forSource(url);
-            if (layer != null) {
+            try {
+                
+                DisplayLayer layer = layerManager.getLayerForUrl(url);
     
                 matrices.push();
                 Matrix4f positionMatrix = matrices.peek().getPositionMatrix();
-
-                VertexConsumer buffer = vertexConsumers.getBuffer(layer);
-
+    
+                VertexConsumer buffer = vertexConsumers.getBuffer(layer.getRenderLayer());
+    
                 BlockPos pos = entity.getPos();
                 float audioDistance = entity.getAudioDistance();
                 float audioVolume = entity.getAudioVolume();
                 layer.pushAudioSource(pos, pos.getManhattanDistance(this.gameRenderer.getCamera().getBlockPos()), audioDistance, audioVolume);
-
+    
                 // Width/Height start coords
                 float ws = renderData.getWidthOffset();
                 float hs = renderData.getHeightOffset();
                 // Width/Height end coords
                 float we = ws + entity.getWidth();
                 float he = hs + entity.getHeight();
-
+    
                 switch (entity.getCachedState().get(Properties.HORIZONTAL_FACING)) {
                     case NORTH -> {
                         buffer.vertex(positionMatrix, we, hs, 0.95f).texture(0, 1).next();
@@ -123,11 +125,13 @@ public class DisplayBlockEntityRenderer implements BlockEntityRenderer<DisplayBl
                         buffer.vertex(positionMatrix, 0.95f, he, ws).texture(0, 0).next();
                     }
                 }
-                
+    
                 matrices.pop();
                 
-            } else {
+            } catch (DisplayLayerManager.OutOfLayerException e) {
                 statusText = NO_LAYER_AVAILABLE_TEXT;
+            } catch (DisplayLayerManager.UnknownFormatException e) {
+                statusText = UNKNOWN_FORMAT_TEXT;
             }
         } else {
             statusText = NO_URL_TEXT;
