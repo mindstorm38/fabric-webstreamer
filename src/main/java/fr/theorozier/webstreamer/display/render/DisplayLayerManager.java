@@ -35,6 +35,8 @@ public class DisplayLayerManager {
         String path = url.uri().getPath();
         if (path.endsWith(".m3u8")) {
             return new DisplayLayerHls(url, this.res);
+        } else if (path.endsWith(".jpeg") || path.endsWith(".jpg") || path.endsWith(".bmp") || path.endsWith(".png")) {
+            return new DisplayLayerImage(url, this.res);
         } else {
             throw new UnknownFormatException();
         }

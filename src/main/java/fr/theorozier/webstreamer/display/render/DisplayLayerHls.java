@@ -109,19 +109,13 @@ public class DisplayLayerHls extends DisplayLayer {
 
 		this.resetPlaylist();
 
-        WebStreamerMod.LOGGER.info(makeLog("Allocate HLS display layer for {}"), this.url);
-
     }
 
 	@Override
 	public void free() {
-		
-		WebStreamerMod.LOGGER.info(makeLog("Free HLS display layer for {}"), this.url);
-
-		this.tex.clearGlId();
+		super.free();
 		this.asyncGrabbers.cleanup(this.res.getExecutor());
 		this.audioSource.free();
-
 	}
 	
 	// Audio //

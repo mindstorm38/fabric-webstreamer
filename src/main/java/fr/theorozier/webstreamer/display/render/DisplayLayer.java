@@ -1,13 +1,17 @@
 package fr.theorozier.webstreamer.display.render;
 
 import com.mojang.blaze3d.systems.RenderSystem;
+import fr.theorozier.webstreamer.WebStreamerMod;
 import fr.theorozier.webstreamer.display.url.DisplayUrl;
+import net.fabricmc.api.EnvType;
+import net.fabricmc.api.Environment;
 import net.minecraft.client.render.RenderLayer;
 import net.minecraft.client.render.VertexFormat;
 import net.minecraft.client.render.VertexFormats;
 import net.minecraft.util.math.Vec3i;
 import org.lwjgl.opengl.GL11;
 
+@Environment(EnvType.CLIENT)
 public abstract class DisplayLayer {
 	
 	/** The timeout for a layer to be considered unused */
@@ -28,10 +32,14 @@ public abstract class DisplayLayer {
 		this.res = res;
 		this.tex = new DisplayTexture();
 		this.renderLayer = new DisplayRenderLayer(this);
+		WebStreamerMod.LOGGER.info(makeLog("Allocate display layer for {}"), this.url);
 	}
 	
 	/** Called when the display layer is being freed, before garbage collection. */
-	protected abstract void free();
+	protected void free() {
+		WebStreamerMod.LOGGER.info(makeLog("Free display layer for {}"), this.url);
+		this.tex.clearGlId();
+	}
 	
 	/** Called on each reader tick. */
 	protected abstract void tick();
