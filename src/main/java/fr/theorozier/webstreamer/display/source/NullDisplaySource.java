@@ -23,6 +23,11 @@ public class NullDisplaySource implements DisplaySource {
 	}
 	
 	@Override
+	public void resetUri() {
+	
+	}
+	
+	@Override
 	public String getStatus() {
 		return "NONE";
 	}

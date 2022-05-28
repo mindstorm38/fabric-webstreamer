@@ -82,6 +82,14 @@ public class DisplayBlockEntityRenderer implements BlockEntityRenderer<DisplayBl
                 
                 DisplayLayer layer = layerManager.getLayerForUrl(url);
     
+                if (layer.isLost()) {
+                    // Each time a display get here, the layer is lost, and then we request
+                    // a URL reset for the render data. With twitch sources it should reset
+                    // and re-fetch a new URL for the playlist.
+                    renderData.resetUrl();
+                    return;
+                }
+                
                 matrices.push();
                 Matrix4f positionMatrix = matrices.peek().getPositionMatrix();
     

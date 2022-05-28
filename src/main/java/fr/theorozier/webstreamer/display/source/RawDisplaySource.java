@@ -32,6 +32,11 @@ public class RawDisplaySource implements DisplaySource {
     }
     
     @Override
+    public void resetUri() {
+    
+    }
+    
+    @Override
     public String getStatus() {
         return this.uri.toString();
     }

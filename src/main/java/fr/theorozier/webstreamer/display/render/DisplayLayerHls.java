@@ -61,6 +61,8 @@ public class DisplayLayerHls extends DisplayLayer {
     private long playlistNextRequestTimestamp;
 	/** Current variable interval for playlist requests. */
 	private long playlistRequestInterval;
+	/** Current number of consecutive failed request for the playerlist. Used to  */
+	private int playlistConsecutiveFailedRequest = 0;
 
 	// Segment //
     
@@ -203,6 +205,7 @@ public class DisplayLayerHls extends DisplayLayer {
 		this.profiler.push("fetch_playlist");
 		this.asyncPlaylist.fetch(this.res.getExecutor(), playlist -> {
 			this.profiler.push("success");
+			this.playlistConsecutiveFailedRequest = 0;
 			int newOffset = (int) playlist.mediaSequence();
 			if (newOffset > this.playlistOffset) {
 				this.playlistSegments = playlist.mediaSegments();
@@ -221,6 +224,7 @@ public class DisplayLayerHls extends DisplayLayer {
 		}, e -> {
 			// If failing, put timestamp to retry later.
 			this.playlistRequestInterval = FAILING_PLAYLIST_REQUEST_INTERVAL;
+			this.playlistConsecutiveFailedRequest++;
 			WebStreamerMod.LOGGER.error(makeLog("Failed to request playlist, setting interval to {} seconds."), this.playlistRequestInterval / 1000000000, e);
 		});
 		this.profiler.pop();
@@ -479,6 +483,11 @@ public class DisplayLayerHls extends DisplayLayer {
         }*/
 
     }
+	
+	@Override
+	public boolean isLost() {
+		return this.playlistConsecutiveFailedRequest >= 3;
+	}
 	
 	/*private static void print(ProfileResult res, String path, int indent) {
 		for (ProfilerTiming timing : res.getTimings(path)) {

@@ -31,6 +31,11 @@ public class DisplayRenderData {
 		this.display = display;
 	}
 	
+	/**
+	 * Get the URL of a specific display.
+	 * @param executor The executor to execute async code on.
+	 * @return Return a non-null URL when loaded.
+	 */
 	public DisplayUrl getUrl(ExecutorService executor) {
 		
 		// This call will only actually push if the source differs from the last one pushed.
@@ -53,8 +58,12 @@ public class DisplayRenderData {
 		
 	}
 	
-	// TODO: Call this when too many IO timeout happens with the current URL.
+	/**
+	 * Force reset the internal URL and try to re-fetch it.
+	 * Especially important to Twitch sources to allow re-fetching old playlist URLs.
+	 */
 	public void resetUrl() {
+		this.display.getSource().resetUri();
 		this.asyncUrl.reset();
 		this.url = null;
 	}

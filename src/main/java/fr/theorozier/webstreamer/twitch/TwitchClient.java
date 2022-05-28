@@ -138,6 +138,12 @@ public class TwitchClient {
 		}
 	}
 	
+	public void forgetPlaylist(String channel) {
+		synchronized (this.cache) {
+			this.cache.remove(channel);
+		}
+	}
+	
 	public enum PlaylistExceptionType {
 		UNKNOWN,
 		NO_TOKEN,

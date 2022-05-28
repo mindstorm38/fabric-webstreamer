@@ -57,6 +57,13 @@ public abstract class DisplayLayer {
 		return now - this.lastUse >= LAYER_UNUSED_TIMEOUT;
 	}
 	
+	/**
+	 * @return True if this layer should be lost while currently used.
+	 */
+	public boolean isLost() {
+		return false;
+	}
+	
 	protected String makeLog(String message) {
 		return String.format("[%s:%08X] ", this.getClass().getSimpleName(), this.url.uri().hashCode()) + message;
 	}

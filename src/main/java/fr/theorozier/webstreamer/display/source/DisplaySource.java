@@ -11,6 +11,8 @@ public interface DisplaySource {
     
     URI getUri();
     
+    void resetUri();
+    
     String getStatus();
     
     void writeNbt(NbtCompound nbt);
