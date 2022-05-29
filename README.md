@@ -1,3 +1,3 @@
 # Fabric WebStreamer mod
 
-Download the mod on release page, take the `.jar` file. Soon on modrinth!
+More information on [Modrinth](https://modrinth.com/mod/webstreamer).
