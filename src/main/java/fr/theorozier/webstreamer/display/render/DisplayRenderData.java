@@ -58,12 +58,16 @@ public class DisplayRenderData {
 		if (this.futureUrl != null && this.futureUrl.isDone()) {
 			try {
 				URI uri = this.futureUrl.get();
-				this.url = WebStreamerClientMod.DISPLAY_URLS.allocUri(uri);
-				WebStreamerMod.LOGGER.info(this.display.makeLog("Allocated a new display url {}."), this.url);
+				if (uri == null) {
+					WebStreamerMod.LOGGER.info(this.display.makeLog("No URI found for the display."));
+				} else {
+					this.url = WebStreamerClientMod.DISPLAY_URLS.allocUri(uri);
+					WebStreamerMod.LOGGER.info(this.display.makeLog("Allocated a new display url {}."), this.url);
+				}
 			} catch (InterruptedException | CancellationException e) {
 				// Cancel should not happen.
 			} catch (ExecutionException e) {
-				WebStreamerMod.LOGGER.info(this.display.makeLog("No URI found for the display."), e);
+				WebStreamerMod.LOGGER.warn(this.display.makeLog("Unhandled error while getting source uri."), e);
 			} finally {
 				this.futureUrl = null;
 			}
