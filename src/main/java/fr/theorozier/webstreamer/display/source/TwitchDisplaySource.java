@@ -67,7 +67,7 @@ public class TwitchDisplaySource implements DisplaySource {
     public void resetUri() {
         if (this.channel != null) {
             WebStreamerClientMod.TWITCH_CLIENT.forgetPlaylist(this.channel);
-            WebStreamerMod.LOGGER.info("Forgot twitch playlist for channel " + this.channel);
+            WebStreamerMod.LOGGER.info("Forget twitch playlist for channel " + this.channel);
         }
     }
     

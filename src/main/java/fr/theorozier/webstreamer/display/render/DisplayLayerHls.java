@@ -454,14 +454,18 @@ public class DisplayLayerHls extends DisplayLayer {
         this.profiler.startTick();
         this.profiler.push("tick");
 		
-        try {
-	        this.profiler.push("fetch");
-			this.fetch();
-        } catch (IOException e) {
-			WebStreamerMod.LOGGER.error(makeLog("Failed to fetch."), e);
-        } finally {
-			this.profiler.pop();
-        }
+		if (!this.isLost()) {
+			// Only fetch if this layer is not lost, because if it's lost, it should be
+			// cleaned up soon.
+			try {
+				this.profiler.push("fetch");
+				this.fetch();
+			} catch (IOException e) {
+				WebStreamerMod.LOGGER.error(makeLog("Failed to fetch."), e);
+			} finally {
+				this.profiler.pop();
+			}
+		}
 
 		long now = System.nanoTime();
 		boolean cleanup = now - this.lastCleanup >= CLEANUP_INTERVAL;

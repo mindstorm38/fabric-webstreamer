@@ -32,12 +32,23 @@ public class DisplayBlockEntity extends BlockEntity {
     public void setSource(@NotNull DisplaySource source) {
         Objects.requireNonNull(source);
         this.source = source;
+        this.markRenderDataSourceDirty();
         this.markDirty();
     }
     
     @NotNull
     public DisplaySource getSource() {
         return source;
+    }
+    
+    /**
+     * Reset the internal source URI, that is currently used with Twitch sources in order
+     * to reset the channels' cache. This also mark the render data as dirty in order to
+     * update the URI on next render.
+     */
+    public void resetSourceUri() {
+        this.source.resetUri();
+        this.markRenderDataSourceDirty();
     }
 
     public void setSize(float width, float height) {
@@ -135,6 +146,8 @@ public class DisplayBlockEntity extends BlockEntity {
             } else {
                 this.source = NullDisplaySource.INSTANCE;
             }
+            
+            this.markRenderDataSourceDirty();
     
         }
         
@@ -171,6 +184,20 @@ public class DisplayBlockEntity extends BlockEntity {
                 this.cachedRenderData = new fr.theorozier.webstreamer.display.render.DisplayRenderData(this);
             }
             return this.cachedRenderData;
+        }
+    }
+    
+    /**
+     * This internal method is used to mark internal render data URL as dirty.
+     * This might be used from any side and is thread-safe.
+     * This will actually do something only on the client-side and only if the
+     * render data has been requested before.
+     */
+    private void markRenderDataSourceDirty() {
+        synchronized (this.cachedRenderDataGuard) {
+            if (this.cachedRenderData != null) {
+                ((fr.theorozier.webstreamer.display.render.DisplayRenderData) this.cachedRenderData).markSourceDirty();
+            }
         }
     }
     
