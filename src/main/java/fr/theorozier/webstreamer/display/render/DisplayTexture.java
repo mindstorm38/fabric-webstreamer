@@ -30,29 +30,19 @@ public class DisplayTexture extends AbstractTexture {
         GlStateManager._texParameter(GL11.GL_TEXTURE_2D, GL12.GL_TEXTURE_WRAP_S, GL12.GL_CLAMP);
         GlStateManager._texParameter(GL11.GL_TEXTURE_2D, GL12.GL_TEXTURE_WRAP_T, GL12.GL_CLAMP);
     }
-
-    private void resize(int width, int height, int format) {
-        if (this.width != width || this.height != height || this.format != format) {
-            GlStateManager._bindTexture(this.getGlId());
-            GlStateManager._texImage2D(GL11.GL_TEXTURE_2D, 0, format, width, height, 0, GL12.GL_BGR, GL11.GL_UNSIGNED_BYTE, null);
-            this.width = width;
-            this.height = height;
-            this.format = format;
-        }
-    }
-
-    public void upload(Frame frame) {
-        if (frame.imageDepth == Frame.DEPTH_UBYTE && frame.imageChannels == 3) {
-            ByteBuffer data = (ByteBuffer) frame.image[0];
-            this.uploadRaw(data, GL11.GL_RGB8, frame.imageWidth, frame.imageHeight, frame.imageStride / 3, GL12.GL_BGR);
-        }
-    }
     
-    private void uploadBind(int internalFormat, int width, int height, int dataWidth) {
-        
-        this.resize(width, height, internalFormat);
+    private void uploadBind(int internalFormat, int width, int height, int dataWidth, int alignment) {
     
         GlStateManager._bindTexture(this.getGlId());
+        
+        if (this.width != width || this.height != height || this.format != internalFormat) {
+            GlStateManager._texImage2D(GL11.GL_TEXTURE_2D, 0, internalFormat, width, height, 0, GL12.GL_BGR, GL11.GL_UNSIGNED_BYTE, null);
+            this.width = width;
+            this.height = height;
+            this.format = internalFormat;
+        }
+    
+        GlStateManager._pixelStore(GL11.GL_UNPACK_ALIGNMENT, alignment);
         GlStateManager._pixelStore(GL11.GL_UNPACK_ROW_LENGTH, dataWidth);
         GlStateManager._pixelStore(GL11.GL_UNPACK_SKIP_ROWS, 0);
         GlStateManager._pixelStore(GL11.GL_UNPACK_SKIP_PIXELS, 0);
@@ -62,10 +52,17 @@ public class DisplayTexture extends AbstractTexture {
         
     }
 
-    public void uploadRaw(ByteBuffer data, int internalFormat, int width, int height, int dataWidth, int dataFormat) {
+    public void uploadRaw(ByteBuffer data, int internalFormat, int width, int height, int dataWidth, int dataFormat, int alignment) {
         RenderSystem.assertOnRenderThread();
-        this.uploadBind(internalFormat, width, height, dataWidth);
+        this.uploadBind(internalFormat, width, height, dataWidth, alignment);
         GL11.glTexSubImage2D(GL11.GL_TEXTURE_2D, 0, 0, 0, width, height, dataFormat, GL11.GL_UNSIGNED_BYTE, data);
+    }
+    
+    public void upload(Frame frame) {
+        if (frame.imageDepth == Frame.DEPTH_UBYTE && frame.imageChannels == 3) {
+            ByteBuffer data = (ByteBuffer) frame.image[0];
+            this.uploadRaw(data, GL11.GL_RGB8, frame.imageWidth, frame.imageHeight, frame.imageStride / 3, GL12.GL_BGR, 4);
+        }
     }
 
     @Override
