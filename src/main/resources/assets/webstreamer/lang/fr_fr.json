@@ -6,7 +6,7 @@
   "gui.webstreamer.display.sourceType": "Type de source",
   "gui.webstreamer.display.sourceType.raw": "URL brut",
   "gui.webstreamer.display.sourceType.twitch": "Twitch",
-  "gui.webstreamer.display.url": "URL",
+  "gui.webstreamer.display.url": "URL (.m3u8, .jpeg, .jpg, .bmp, .png)",
   "gui.webstreamer.display.channel": "Chaîne",
   "gui.webstreamer.display.malformedUrl": "Erreur: URL malformée",
   "gui.webstreamer.display.noQuality": "Pas de qualité",
