@@ -13,8 +13,8 @@ import org.spongepowered.asm.mixin.gen.Invoker;
 @Mixin(WorldRenderer.class)
 public interface WorldRendererInvoker {
 	
-	@Invoker("drawShapeOutline")
-	static void drawShapeOutline(MatrixStack matrices, VertexConsumer vertexConsumer, VoxelShape voxelShape, double dx, double dy, double dz, float r, float g, float b, float a) {
+	@Invoker("drawCuboidShapeOutline")
+	static void drawCuboidShapeOutline(MatrixStack matrices, VertexConsumer vertexConsumer, VoxelShape voxelShape, double dx, double dy, double dz, float r, float g, float b, float a) {
 		throw new AssertionError();
 	}
 	

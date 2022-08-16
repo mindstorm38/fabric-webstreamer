@@ -14,17 +14,14 @@ import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.minecraft.client.gui.Drawable;
 import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.screen.ScreenTexts;
 import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.client.gui.widget.CyclingButtonWidget;
 import net.minecraft.client.gui.widget.SliderWidget;
 import net.minecraft.client.gui.widget.TextFieldWidget;
 import net.minecraft.client.util.NarratorManager;
 import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.text.LiteralText;
+import net.minecraft.screen.ScreenTexts;
 import net.minecraft.text.Text;
-import net.minecraft.text.TranslatableText;
-
 import java.net.URI;
 import java.util.List;
 import java.util.Objects;
@@ -34,23 +31,23 @@ import java.util.function.Consumer;
 @Environment(EnvType.CLIENT)
 public class DisplayBlockScreen extends Screen {
 
-    private static final Text CONF_TEXT = new TranslatableText("gui.webstreamer.display.conf");
-    private static final Text WIDTH_TEXT = new TranslatableText("gui.webstreamer.display.width");
-    private static final Text HEIGHT_TEXT = new TranslatableText("gui.webstreamer.display.height");
-    private static final Text SOURCE_TYPE_TEXT = new TranslatableText("gui.webstreamer.display.sourceType");
-    private static final Text SOURCE_TYPE_RAW_TEXT = new TranslatableText("gui.webstreamer.display.sourceType.raw");
-    private static final Text SOURCE_TYPE_TWITCH_TEXT = new TranslatableText("gui.webstreamer.display.sourceType.twitch");
-    private static final Text URL_TEXT = new TranslatableText("gui.webstreamer.display.url");
-    private static final Text CHANNEL_TEXT = new TranslatableText("gui.webstreamer.display.channel");
-    private static final Text MALFORMED_URL_TEXT = new TranslatableText("gui.webstreamer.display.malformedUrl");
-    private static final Text NO_QUALITY_TEXT = new TranslatableText("gui.webstreamer.display.noQuality");
-    private static final Text QUALITY_TEXT = new TranslatableText("gui.webstreamer.display.quality");
+    private static final Text CONF_TEXT = Text.translatable("gui.webstreamer.display.conf");
+    private static final Text WIDTH_TEXT = Text.translatable("gui.webstreamer.display.width");
+    private static final Text HEIGHT_TEXT = Text.translatable("gui.webstreamer.display.height");
+    private static final Text SOURCE_TYPE_TEXT = Text.translatable("gui.webstreamer.display.sourceType");
+    private static final Text SOURCE_TYPE_RAW_TEXT = Text.translatable("gui.webstreamer.display.sourceType.raw");
+    private static final Text SOURCE_TYPE_TWITCH_TEXT = Text.translatable("gui.webstreamer.display.sourceType.twitch");
+    private static final Text URL_TEXT = Text.translatable("gui.webstreamer.display.url");
+    private static final Text CHANNEL_TEXT = Text.translatable("gui.webstreamer.display.channel");
+    private static final Text MALFORMED_URL_TEXT = Text.translatable("gui.webstreamer.display.malformedUrl");
+    private static final Text NO_QUALITY_TEXT = Text.translatable("gui.webstreamer.display.noQuality");
+    private static final Text QUALITY_TEXT = Text.translatable("gui.webstreamer.display.quality");
     private static final String AUDIO_DISTANCE_TEXT_KEY = "gui.webstreamer.display.audioDistance";
     private static final String AUDIO_VOLUME_TEXT_KEY = "gui.webstreamer.display.audioVolume";
 
-    private static final Text ERR_NO_TOKEN_TEXT = new TranslatableText("gui.webstreamer.display.error.noToken");
-    private static final Text ERR_CHANNEL_NOT_FOUND_TEXT = new TranslatableText("gui.webstreamer.display.error.channelNotFound");
-    private static final Text ERR_CHANNEL_OFFLINE_TEXT = new TranslatableText("gui.webstreamer.display.error.channelOffline");
+    private static final Text ERR_NO_TOKEN_TEXT = Text.translatable("gui.webstreamer.display.error.noToken");
+    private static final Text ERR_CHANNEL_NOT_FOUND_TEXT = Text.translatable("gui.webstreamer.display.error.channelNotFound");
+    private static final Text ERR_CHANNEL_OFFLINE_TEXT = Text.translatable("gui.webstreamer.display.error.channelOffline");
     private static final String ERR_UNKNOWN_TEXT_KEY = "gui.webstreamer.display.error.unknown";
 
     private final DisplayBlockEntity blockEntity;
@@ -117,13 +114,13 @@ public class DisplayBlockScreen extends Screen {
         String displayWidthRaw = this.displayWidthField == null ? Float.toString(this.displayWidth) : this.displayWidthField.getText();
         String displayHeightRaw = this.displayHeightField == null ? Float.toString(this.displayHeight) : this.displayHeightField.getText();
 
-        this.displayWidthField = new TextFieldWidget(this.textRenderer, xHalf - 154, yTop + 11, 50, 18, LiteralText.EMPTY);
+        this.displayWidthField = new TextFieldWidget(this.textRenderer, xHalf - 154, yTop + 11, 50, 18, Text.empty());
         this.displayWidthField.setText(displayWidthRaw);
         this.displayWidthField.setChangedListener(this::onDisplayWidthChanged);
         this.addDrawableChild(this.displayWidthField);
         this.addSelectableChild(this.displayWidthField);
 
-        this.displayHeightField = new TextFieldWidget(this.textRenderer, xHalf - 96, yTop + 11, 50, 18, LiteralText.EMPTY);
+        this.displayHeightField = new TextFieldWidget(this.textRenderer, xHalf - 96, yTop + 11, 50, 18, Text.empty());
         this.displayHeightField.setText(displayHeightRaw);
         this.displayHeightField.setChangedListener(this::onDisplayHeightChanged);
         this.addDrawableChild(this.displayHeightField);
@@ -284,7 +281,7 @@ public class DisplayBlockScreen extends Screen {
 
             boolean first = (this.urlField == null);
 
-            this.urlField = new TextFieldWidget(textRenderer, xHalf - 154, ySourceTop + 10, 308, 20, this.urlField, LiteralText.EMPTY);
+            this.urlField = new TextFieldWidget(textRenderer, xHalf - 154, ySourceTop + 10, 308, 20, this.urlField, Text.empty());
             this.urlField.setMaxLength(32000);
             this.urlField.setChangedListener(this::onUrlChanged);
             addSelectableChild(this.urlField);
@@ -348,7 +345,7 @@ public class DisplayBlockScreen extends Screen {
 
             boolean first = (this.channelField == null);
 
-            this.channelField = new TextFieldWidget(textRenderer, xHalf - 154, ySourceTop + 10, 308, 20, this.channelField, LiteralText.EMPTY);
+            this.channelField = new TextFieldWidget(textRenderer, xHalf - 154, ySourceTop + 10, 308, 20, this.channelField, Text.empty());
             this.channelField.setMaxLength(64);
             this.channelField.setChangedListener(this::onChannelChanged);
             addSelectableChild(this.channelField);
@@ -395,7 +392,7 @@ public class DisplayBlockScreen extends Screen {
                 this.playlist = null;
                 this.qualitySlider.setQualities(null);
                 this.playlistError = switch (exc.getExceptionType()) {
-                    case UNKNOWN -> new TranslatableText(ERR_UNKNOWN_TEXT_KEY, "");
+                    case UNKNOWN -> Text.translatable(ERR_UNKNOWN_TEXT_KEY, "");
                     case NO_TOKEN -> ERR_NO_TOKEN_TEXT;
                     case CHANNEL_NOT_FOUND -> ERR_CHANNEL_NOT_FOUND_TEXT;
                     case CHANNEL_OFFLINE -> ERR_CHANNEL_OFFLINE_TEXT;
@@ -430,7 +427,7 @@ public class DisplayBlockScreen extends Screen {
         private Consumer<PlaylistQuality> changedListener;
 
         public QualitySliderWidget(int x, int y, int width, int height, QualitySliderWidget previousSlider) {
-            super(x, y, width, height, LiteralText.EMPTY, 0.0);
+            super(x, y, width, height, Text.empty(), 0.0);
             if (previousSlider != null && previousSlider.qualities != null) {
                 this.setQualities(previousSlider.qualities);
                 this.qualityIndex = previousSlider.qualityIndex;
@@ -470,7 +467,7 @@ public class DisplayBlockScreen extends Screen {
             if (this.qualityIndex < 0) {
                 this.setMessage(NO_QUALITY_TEXT);
             } else {
-                this.setMessage(new LiteralText(this.qualities.get(this.qualityIndex).name()));
+                this.setMessage(Text.literal(this.qualities.get(this.qualityIndex).name()));
             }
         }
 
@@ -501,7 +498,7 @@ public class DisplayBlockScreen extends Screen {
         private Consumer<Float> changedListener;
         
         public AudioDistanceSliderWidget(int x, int y, int width, int height, float distance, float maxDistance) {
-            super(x, y, width, height, LiteralText.EMPTY, distance / maxDistance);
+            super(x, y, width, height, Text.empty(), distance / maxDistance);
             this.maxDistance = maxDistance;
             this.updateMessage();
         }
@@ -516,7 +513,7 @@ public class DisplayBlockScreen extends Screen {
         
         @Override
         protected void updateMessage() {
-            this.setMessage(new TranslatableText(AUDIO_DISTANCE_TEXT_KEY).append(": ").append(Integer.toString((int) this.getDistance())));
+            this.setMessage(Text.translatable(AUDIO_DISTANCE_TEXT_KEY).append(": ").append(Integer.toString((int) this.getDistance())));
         }
         
         @Override
@@ -531,7 +528,7 @@ public class DisplayBlockScreen extends Screen {
         private Consumer<Float> changedListener;
     
         public AudioVolumeSliderWidget(int x, int y, int width, int height, float value) {
-            super(x, y, width, height, LiteralText.EMPTY, value);
+            super(x, y, width, height, Text.empty(), value);
             this.updateMessage();
         }
     
@@ -541,8 +538,8 @@ public class DisplayBlockScreen extends Screen {
     
         @Override
         protected void updateMessage() {
-            Text text = (this.value == this.getYImage(false)) ? ScreenTexts.OFF : new LiteralText((int)(this.value * 100.0) + "%");
-            this.setMessage(new TranslatableText(AUDIO_VOLUME_TEXT_KEY).append(": ").append(text));
+            Text text = (this.value == this.getYImage(false)) ? ScreenTexts.OFF : Text.literal((int)(this.value * 100.0) + "%");
+            this.setMessage(Text.translatable(AUDIO_VOLUME_TEXT_KEY).append(": ").append(text));
         }
     
         @Override
