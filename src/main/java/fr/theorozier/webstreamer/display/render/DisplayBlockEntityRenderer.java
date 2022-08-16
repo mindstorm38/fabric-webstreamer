@@ -19,9 +19,7 @@ import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.ItemStack;
 import net.minecraft.state.property.Properties;
-import net.minecraft.text.LiteralText;
 import net.minecraft.text.Text;
-import net.minecraft.text.TranslatableText;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Matrix4f;
 import net.minecraft.util.math.Vec3f;
@@ -32,9 +30,9 @@ import java.util.stream.StreamSupport;
 @Environment(EnvType.CLIENT)
 public class DisplayBlockEntityRenderer implements BlockEntityRenderer<DisplayBlockEntity> {
     
-    private static final Text NO_LAYER_AVAILABLE_TEXT = new TranslatableText("gui.webstreamer.display.status.noLayerAvailable");
-    private static final Text UNKNOWN_FORMAT_TEXT = new TranslatableText("gui.webstreamer.display.status.unknownFormat");
-    private static final Text NO_URL_TEXT = new TranslatableText("gui.webstreamer.display.status.noUrl");
+    private static final Text NO_LAYER_AVAILABLE_TEXT = Text.translatable("gui.webstreamer.display.status.noLayerAvailable");
+    private static final Text UNKNOWN_FORMAT_TEXT = Text.translatable("gui.webstreamer.display.status.unknownFormat");
+    private static final Text NO_URL_TEXT = Text.translatable("gui.webstreamer.display.status.noUrl");
     
     private final GameRenderer gameRenderer = MinecraftClient.getInstance().gameRenderer;
     private final TextRenderer textRenderer;
@@ -67,11 +65,11 @@ public class DisplayBlockEntityRenderer implements BlockEntityRenderer<DisplayBl
                 VoxelShape displayShape = entity.getCachedState().getOutlineShape(entity.getWorld(), entity.getPos());
                 if (displayShape != null) {
                     matrices.push();
-                    WorldRendererInvoker.drawShapeOutline(matrices, vertexConsumers.getBuffer(RenderLayer.getLines()), displayShape, 0, 0, 0, 235 / 255f, 168 / 255f, 0f, 1f);
+                    WorldRendererInvoker.drawCuboidShapeOutline(matrices, vertexConsumers.getBuffer(RenderLayer.getLines()), displayShape, 0, 0, 0, 235 / 255f, 168 / 255f, 0f, 1f);
                     matrices.pop();
                 }
         
-                statusText = new LiteralText(entity.getSource().getStatus());
+                statusText = Text.literal(entity.getSource().getStatus());
         
             }
             

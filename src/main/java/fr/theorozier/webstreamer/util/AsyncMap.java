@@ -1,6 +1,5 @@
 package fr.theorozier.webstreamer.util;
 
-import fr.theorozier.webstreamer.WebStreamerMod;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 
 import java.util.Iterator;
