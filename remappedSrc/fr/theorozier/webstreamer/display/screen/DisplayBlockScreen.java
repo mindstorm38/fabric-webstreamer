@@ -140,11 +140,15 @@ public class DisplayBlockScreen extends Screen {
         this.audioVolumeSlider = new AudioVolumeSliderWidget(xHalf + 4, yTop + 36, 150, 20, this.displayAudioVolume);
         this.audioVolumeSlider.setChangedListener(volume -> this.displayAudioVolume = volume);
         this.addDrawableChild(this.audioVolumeSlider);
-
-        this.doneButton = new ButtonWidget.Builder(ScreenTexts.DONE, button -> {this.commitAndClose();}).dimensions(xHalf - 4 - 150,height / 4 + 120 + 12, 150, 20).build();
+        
+        this.doneButton = new ButtonWidget(xHalf - 4 - 150, height / 4 + 120 + 12, 150, 20, ScreenTexts.DONE, button -> {
+            this.commitAndClose();
+        });
         this.addDrawableChild(this.doneButton);
 
-        this.cancelButton = new ButtonWidget.Builder(ScreenTexts.CANCEL, button -> {this.close();}).dimensions(xHalf + 4, height / 4 + 120 + 12, 150, 20).build();
+        this.cancelButton = new ButtonWidget(xHalf + 4, height / 4 + 120 + 12, 150, 20, ScreenTexts.CANCEL, button -> {
+            this.close();
+        });
         this.addDrawableChild(this.cancelButton);
 
         if (this.sourceScreen != null) {
@@ -314,7 +318,7 @@ public class DisplayBlockScreen extends Screen {
 
         private TextFieldWidget channelField;
         private QualitySliderWidget qualitySlider;
-
+        
         private String firstQuality;
 
         private final AsyncProcessor<String, Playlist, TwitchClient.PlaylistException> asyncPlaylist;
@@ -347,7 +351,7 @@ public class DisplayBlockScreen extends Screen {
             addSelectableChild(this.channelField);
             setInitialFocus(this.channelField);
             addDrawableChild(this.channelField);
-
+    
             this.qualitySlider = new QualitySliderWidget(xHalf - 154, ySourceTop + 50, 308, 20, this.qualitySlider);
             this.qualitySlider.setChangedListener(this::onQualityChanged);
             this.updateQualitySlider();
@@ -415,7 +419,7 @@ public class DisplayBlockScreen extends Screen {
         }
 
     }
-
+    
     private static class QualitySliderWidget extends SliderWidget {
 
         private int qualityIndex = -1;
@@ -433,13 +437,13 @@ public class DisplayBlockScreen extends Screen {
                 this.setQualities(null);
             }
         }
-
+    
         public void setQualities(List<PlaylistQuality> qualities) {
             this.qualities = qualities;
             this.applyValue();
             this.updateMessage();
         }
-
+        
         public void setQuality(String quality) {
             for (int i = 0; i < this.qualities.size(); i++) {
                 if (this.qualities.get(i).name().equals(quality)) {
@@ -487,62 +491,62 @@ public class DisplayBlockScreen extends Screen {
         }
 
     }
-
+    
     private static class AudioDistanceSliderWidget extends SliderWidget {
-
+        
         private final float maxDistance;
         private Consumer<Float> changedListener;
-
+        
         public AudioDistanceSliderWidget(int x, int y, int width, int height, float distance, float maxDistance) {
             super(x, y, width, height, Text.empty(), distance / maxDistance);
             this.maxDistance = maxDistance;
             this.updateMessage();
         }
-
+        
         public void setChangedListener(Consumer<Float> changedListener) {
             this.changedListener = changedListener;
         }
-
+        
         private float getDistance() {
             return (float) (this.value * this.maxDistance);
         }
-
+        
         @Override
         protected void updateMessage() {
             this.setMessage(Text.translatable(AUDIO_DISTANCE_TEXT_KEY).append(": ").append(Integer.toString((int) this.getDistance())));
         }
-
+        
         @Override
         protected void applyValue() {
             this.changedListener.accept(this.getDistance());
         }
-
+        
     }
-
+    
     private static class AudioVolumeSliderWidget extends SliderWidget {
-
+        
         private Consumer<Float> changedListener;
-
+    
         public AudioVolumeSliderWidget(int x, int y, int width, int height, float value) {
             super(x, y, width, height, Text.empty(), value);
             this.updateMessage();
         }
-
+    
         public void setChangedListener(Consumer<Float> changedListener) {
             this.changedListener = changedListener;
         }
-
+    
         @Override
         protected void updateMessage() {
             Text text = (this.value == this.getYImage(false)) ? ScreenTexts.OFF : Text.literal((int)(this.value * 100.0) + "%");
             this.setMessage(Text.translatable(AUDIO_VOLUME_TEXT_KEY).append(": ").append(text));
         }
-
+    
         @Override
         protected void applyValue() {
             this.changedListener.accept((float) this.value);
         }
-
+        
     }
 
 }
