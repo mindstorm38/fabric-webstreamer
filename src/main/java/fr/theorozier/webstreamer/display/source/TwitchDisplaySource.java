@@ -10,6 +10,10 @@ import net.minecraft.nbt.NbtString;
 
 import java.net.*;
 
+/**
+ * <p>A Twitch display source is defined by a Twitch channel and quality, the URI is
+ * computed with the Twitch GraphQL API.</p>
+ */
 public class TwitchDisplaySource implements DisplaySource {
     
     public static final String TYPE = "twitch";

@@ -17,7 +17,7 @@ public class DisplayLayerManager {
     private static final int MAX_LAYERS_COUNT = 20;
     /** Interval of cleanups for unused display layers. */
     private static final long CLEANUP_INTERVAL = 5L * 1000000000L;
-
+ 
     private final Int2ObjectOpenHashMap<DisplayLayer> layers = new Int2ObjectOpenHashMap<>();
     
     /** Common pools for shared and reusable heavy buffers. */

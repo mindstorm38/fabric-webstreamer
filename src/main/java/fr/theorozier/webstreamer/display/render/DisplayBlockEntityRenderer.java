@@ -45,15 +45,20 @@ public class DisplayBlockEntityRenderer implements BlockEntityRenderer<DisplayBl
     @Override
     public void render(DisplayBlockEntity entity, float tickDelta, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light, int overlay) {
     
+        // Get the render data from the block entity, this is just an extension to the
+        // block entity, so it will always be present and is lazily instantiated and will
+        // last as long as the block entity.
         DisplayRenderData renderData = (DisplayRenderData) entity.getRenderData();
         DisplayLayerManager layerManager = WebStreamerClientMod.DISPLAY_LAYERS;
-        
-        DisplayUrl url = renderData.getUrl(layerManager.getResources().getExecutor());
-    
-        PlayerEntity player = MinecraftClient.getInstance().player;
-        
         Text statusText = null;
         
+        // Asynchronously get the URI of this display, if the URI is not yet available,
+        // null is just returned.
+        DisplayUrl url = renderData.getUrl(layerManager.getResources().getExecutor());
+        
+        // If the player is currently holding a display item, we draw the outline shape
+        // of the display block, we also display as status text the source status.
+        PlayerEntity player = MinecraftClient.getInstance().player;
         if (player != null) {
     
             boolean hasDisplayEquipped = StreamSupport.stream(player.getItemsEquipped().spliterator(), false)

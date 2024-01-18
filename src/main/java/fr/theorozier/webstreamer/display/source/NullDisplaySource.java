@@ -4,6 +4,10 @@ import net.minecraft.nbt.NbtCompound;
 
 import java.net.URI;
 
+/**
+ * <p>The null display source always return no URI, so nothing will be rendered on the 
+ * display, this is the default display source and is a singleton.</p>
+ */
 public class NullDisplaySource implements DisplaySource {
 	
 	public static final NullDisplaySource INSTANCE = new NullDisplaySource();

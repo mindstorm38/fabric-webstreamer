@@ -6,6 +6,9 @@ import net.fabricmc.api.Environment;
 
 import java.net.URI;
 
+/**
+ * This singleton is used to allocate display URIs from a given URI.
+ */
 @Environment(EnvType.CLIENT)
 public class DisplayUrlManager {
 

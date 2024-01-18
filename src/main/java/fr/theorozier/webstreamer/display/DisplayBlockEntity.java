@@ -17,6 +17,10 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.Objects;
 
+/**
+ * <p>The block entity that is backing {@link DisplayBlock}, it's mainly composed of the
+ * {@link DisplaySource}, size and audio configuration.</p>
+ */
 public class DisplayBlockEntity extends BlockEntity {
     
     private DisplaySource source = NullDisplaySource.INSTANCE;
@@ -169,13 +173,19 @@ public class DisplayBlockEntity extends BlockEntity {
         return "[" + this.pos.getX() + "/" + this.pos.getY() + "/" + this.pos.getZ() + "] " + message;
     }
     
-    // Render data //
+    /*
+     * == RENDER DATA
+     * 
+     * The render data is present on both server and client side, but is only actually
+     * used on client side for storing the display render data.
+     */
     
     private final Object cachedRenderDataGuard = new Object();
     private Object cachedRenderData;
     
     /**
      * <b>Should only be called from client side.</b>
+     * 
      * @return A <code>DisplayRenderData</code> class, only valid on client side.
      */
     public Object getRenderData() {

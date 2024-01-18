@@ -3,6 +3,10 @@ package fr.theorozier.webstreamer.playlist;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * A generic playlist data structure that defines different URIs for each quality 
+ * available on a channel.
+ */
 public class Playlist {
 		
 	private final String channel;

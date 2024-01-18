@@ -28,6 +28,10 @@ import java.util.Objects;
 import java.util.concurrent.*;
 import java.util.function.Consumer;
 
+/**
+ * <p>This screen is the GUI that the player can use to configure a display block 
+ * entity.</p>
+ */
 @Environment(EnvType.CLIENT)
 public class DisplayBlockScreen extends Screen {
 
