@@ -5,7 +5,6 @@ import com.mojang.blaze3d.systems.RenderSystem;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.minecraft.client.texture.AbstractTexture;
-import net.minecraft.client.texture.NativeImage;
 import net.minecraft.resource.ResourceManager;
 import org.bytedeco.javacv.Frame;
 import org.lwjgl.opengl.GL11;
@@ -13,7 +12,6 @@ import org.lwjgl.opengl.GL12;
 import org.lwjgl.opengl.GL14;
 
 import java.nio.ByteBuffer;
-import java.nio.IntBuffer;
 
 @Environment(EnvType.CLIENT)
 public class DisplayTexture extends AbstractTexture {

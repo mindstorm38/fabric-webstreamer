@@ -130,6 +130,7 @@ public class DisplayBlockEntityRenderer implements BlockEntityRenderer<DisplayBl
                         buffer.vertex(positionMatrix, 0.95f, he, we).texture(1, 0).next();
                         buffer.vertex(positionMatrix, 0.95f, he, ws).texture(0, 0).next();
                     }
+                    default -> throw new IllegalArgumentException();
                 }
     
                 matrices.pop();
@@ -153,7 +154,9 @@ public class DisplayBlockEntityRenderer implements BlockEntityRenderer<DisplayBl
             final float halfHeight = this.textRenderer.fontHeight / scaleFactor / 2f;
     
             switch (entity.getCachedState().get(Properties.HORIZONTAL_FACING)) {
-                case NORTH -> matrices.translate(0.5f + halfWidth, 0.5f + halfHeight, 0.85f);
+                case NORTH -> {
+                    matrices.translate(0.5f + halfWidth, 0.5f + halfHeight, 0.85f);
+                }
                 case SOUTH -> {
                     matrices.multiply(Vec3f.POSITIVE_Y.getDegreesQuaternion(180));
                     matrices.translate(-0.5f + halfWidth, 0.5f + halfHeight, -0.15f);
@@ -166,6 +169,7 @@ public class DisplayBlockEntityRenderer implements BlockEntityRenderer<DisplayBl
                     matrices.multiply(Vec3f.POSITIVE_Y.getDegreesQuaternion(90));
                     matrices.translate(-0.5f + halfWidth, 0.5f + halfHeight, 0.85f);
                 }
+                default -> throw new IllegalArgumentException();
             }
     
             matrices.scale(-scale, -scale, 1f);
