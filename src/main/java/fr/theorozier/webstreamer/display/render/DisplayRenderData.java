@@ -3,6 +3,7 @@ package fr.theorozier.webstreamer.display.render;
 import fr.theorozier.webstreamer.WebStreamerClientMod;
 import fr.theorozier.webstreamer.WebStreamerMod;
 import fr.theorozier.webstreamer.display.DisplayBlockEntity;
+import fr.theorozier.webstreamer.display.source.DisplaySource;
 import fr.theorozier.webstreamer.display.url.DisplayUrl;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
@@ -13,6 +14,13 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 
+/**
+ * <p>A display render data is an extension added to the {@link DisplayBlockEntity} class
+ * only for client side, it's used to asynchronously request the URI from
+ * {@link DisplaySource#getUri()} of the block entity (because that method is blocking).
+ * This allows non-blocking request of the URL from the display renderer.
+ * </p>
+ */
 @Environment(EnvType.CLIENT)
 public class DisplayRenderData {
 
@@ -42,8 +50,9 @@ public class DisplayRenderData {
 	}
 	
 	/**
-	 * Get the URL of a specific display. This method must be called from {@link DisplayBlockEntityRenderer} only
-	 * in the render thread.
+	 * Get the URL of a specific display. This method must be called from 
+	 * {@link DisplayBlockEntityRenderer} only in the render thread.
+	 * 
 	 * @param executor The executor to execute async code on.
 	 * @return Return a non-null URL when loaded.
 	 */

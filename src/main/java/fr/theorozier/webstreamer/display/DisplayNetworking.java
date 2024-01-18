@@ -18,6 +18,11 @@ import net.minecraft.util.math.BlockPos;
 
 import java.util.function.BiConsumer;
 
+/**
+ * <p>This static class provides methods to send display block update when editing one,
+ * from client to server. Note that the opposite packet from server to client is 
+ * implemented natively by the game so we don't need to implement it.</p>
+ */
 public class DisplayNetworking {
 	
 	public static final Identifier DISPLAY_BLOCK_UPDATE_PACKET_ID = new Identifier("webstreamer:display_block_update");

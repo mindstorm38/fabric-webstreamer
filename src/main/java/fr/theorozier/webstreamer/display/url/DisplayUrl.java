@@ -5,6 +5,9 @@ import net.fabricmc.api.Environment;
 
 import java.net.URI;
 
+/**
+ * A display URI maps an URI that was returned from a source to a unique ID.
+ */
 @Environment(EnvType.CLIENT)
 public record DisplayUrl(URI uri, int id) {
 
