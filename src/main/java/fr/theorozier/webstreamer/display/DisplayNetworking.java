@@ -64,7 +64,7 @@ public class DisplayNetworking {
 		public void receive(MinecraftServer server, ServerPlayerEntity player, ServerPlayNetworkHandler handler, PacketByteBuf buf, PacketSender responseSender) {
 			if (DisplayBlock.canUse(player)) {
 				decodeDisplayUpdatePacket(buf, (pos, nbt) -> {
-					ServerWorld world = player.getWorld();
+					ServerWorld world = player.getServerWorld();
 					world.getServer().executeSync(() -> {
 						if (world.getBlockEntity(pos) instanceof DisplayBlockEntity blockEntity) {
 							blockEntity.readNbt(nbt);

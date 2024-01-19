@@ -19,15 +19,23 @@ import net.minecraft.world.World;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import com.mojang.serialization.MapCodec;
+
 public class DisplayBlock extends BlockWithEntity {
+
+    public static final MapCodec<DisplayBlock> CODEC = DisplayBlock.createCodec(DisplayBlock::new);
     
     private static final VoxelShape SHAPE_NORTH = VoxelShapes.cuboid(0, 0, 0.9, 1, 1, 1);
     private static final VoxelShape SHAPE_SOUTH = VoxelShapes.cuboid(0, 0, 0, 1, 1, 0.1);
     private static final VoxelShape SHAPE_WEST = VoxelShapes.cuboid(0.9, 0, 0, 1, 1, 1);
     private static final VoxelShape SHAPE_EAST = VoxelShapes.cuboid(0, 0, 0, 0.1, 1, 1);
     
+    public DisplayBlock(Settings settings) {
+        super(settings);
+    }
+
     public DisplayBlock() {
-        super(Settings.of(Material.GLASS)
+        this(Settings.create()
                 .sounds(BlockSoundGroup.GLASS)
                 .strength(-1.0f, 3600000.0f)
                 .requiresTool()
@@ -56,7 +64,7 @@ public class DisplayBlock extends BlockWithEntity {
     public BlockState getPlacementState(ItemPlacementContext ctx) {
         Direction dir = ctx.getSide();
         if (dir == Direction.DOWN || dir == Direction.UP) {
-            dir = ctx.getPlayerFacing().getOpposite();
+            dir = ctx.getPlayerLookDirection().getOpposite();
         }
         return this.getDefaultState().with(Properties.HORIZONTAL_FACING, dir);
     }
@@ -93,6 +101,11 @@ public class DisplayBlock extends BlockWithEntity {
     
     public static boolean canUse(@NotNull PlayerEntity player) {
         return player.hasPermissionLevel(2);
+    }
+
+    @Override
+    protected MapCodec<? extends BlockWithEntity> getCodec() {
+        return CODEC;
     }
 
 }

@@ -2,14 +2,14 @@ package fr.theorozier.webstreamer.display;
 
 import fr.theorozier.webstreamer.WebStreamerMod;
 import fr.theorozier.webstreamer.display.source.DisplaySource;
-import fr.theorozier.webstreamer.display.source.NullDisplaySource;
+import fr.theorozier.webstreamer.display.source.RawDisplaySource;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.entity.BlockEntity;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.nbt.NbtFloat;
 import net.minecraft.nbt.NbtString;
-import net.minecraft.network.Packet;
 import net.minecraft.network.listener.ClientPlayPacketListener;
+import net.minecraft.network.packet.Packet;
 import net.minecraft.network.packet.s2c.play.BlockEntityUpdateS2CPacket;
 import net.minecraft.util.math.BlockPos;
 import org.jetbrains.annotations.NotNull;
@@ -23,7 +23,7 @@ import java.util.Objects;
  */
 public class DisplayBlockEntity extends BlockEntity {
     
-    private DisplaySource source = NullDisplaySource.INSTANCE;
+    private DisplaySource source = new RawDisplaySource();
     private float width = 1;
     private float height = 1;
     private float audioDistance = 10f;
@@ -148,7 +148,7 @@ public class DisplayBlockEntity extends BlockEntity {
                 this.source = DisplaySource.newSourceFromType(type.asString());
                 this.source.readNbt(displayNbt);
             } else {
-                this.source = NullDisplaySource.INSTANCE;
+                this.source = new RawDisplaySource();
             }
             
             this.markRenderDataSourceDirty();

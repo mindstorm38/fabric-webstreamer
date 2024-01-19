@@ -14,21 +14,18 @@ import java.net.*;
  * <p>A Twitch display source is defined by a Twitch channel and quality, the URI is
  * computed with the Twitch GraphQL API.</p>
  */
-public class TwitchDisplaySource implements DisplaySource {
+public class TwitchDisplaySource extends DisplaySource {
     
     public static final String TYPE = "twitch";
 
     private String channel;
     private String quality;
-    // private PlaylistQuality quality;
 
-    public TwitchDisplaySource(TwitchDisplaySource copy) {
-        this.channel = copy.channel;
-        this.quality = copy.quality;
-        // this.quality = copy.quality;
-    }
-    
     public TwitchDisplaySource() { }
+
+    public TwitchDisplaySource(String channel, String quality) {
+        this.setChannelQuality(channel, quality);
+    }
     
     public void setChannelQuality(String channel, String quality) {
         this.channel = channel;
@@ -93,14 +90,12 @@ public class TwitchDisplaySource implements DisplaySource {
     public void readNbt(NbtCompound nbt) {
         if (
             nbt.get("channel") instanceof NbtString channel &&
-            nbt.get("quality") instanceof NbtString quality /*&&
-            nbt.get("url") instanceof NbtString urlRaw*/
+            nbt.get("quality") instanceof NbtString quality
         ) {
             try {
                 // URI uri = URI.create(urlRaw.asString());
                 this.channel = channel.asString();
                 this.quality = quality.asString();
-                // his.quality = new PlaylistQuality(quality.asString(), uri);
             } catch (IllegalArgumentException e) {
                 e.printStackTrace();
             }

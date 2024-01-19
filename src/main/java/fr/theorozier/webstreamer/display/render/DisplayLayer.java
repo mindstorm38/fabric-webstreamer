@@ -6,6 +6,7 @@ import fr.theorozier.webstreamer.display.url.DisplayUrl;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.minecraft.client.render.RenderLayer;
+import net.minecraft.client.render.RenderPhase;
 import net.minecraft.client.render.VertexFormat;
 import net.minecraft.client.render.VertexFormats;
 import net.minecraft.util.math.Vec3i;
@@ -78,10 +79,9 @@ public abstract class DisplayLayer {
 					256, false, true,
 					() -> {
 						layer.lastUse = System.nanoTime();
-						POSITION_TEXTURE_SHADER.startDrawing();
+						RenderPhase.POSITION_TEXTURE_PROGRAM.startDrawing();
 						RenderSystem.enableDepthTest();
 						RenderSystem.depthFunc(GL11.GL_LEQUAL);
-						RenderSystem.enableTexture();
 						RenderSystem.setShaderTexture(0, layer.tex.getGlId());
 					},
 					RenderSystem::disableDepthTest);
