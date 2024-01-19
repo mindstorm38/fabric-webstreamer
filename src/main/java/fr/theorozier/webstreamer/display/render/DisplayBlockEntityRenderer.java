@@ -9,6 +9,7 @@ import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.font.TextRenderer;
+import net.minecraft.client.font.TextRenderer.TextLayerType;
 import net.minecraft.client.render.GameRenderer;
 import net.minecraft.client.render.RenderLayer;
 import net.minecraft.client.render.VertexConsumer;
@@ -21,9 +22,11 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.state.property.Properties;
 import net.minecraft.text.Text;
 import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Matrix4f;
-import net.minecraft.util.math.Vec3f;
 import net.minecraft.util.shape.VoxelShape;
+
+import org.joml.AxisAngle4d;
+import org.joml.Matrix4f;
+import org.joml.Quaternionf;
 
 import java.util.stream.StreamSupport;
 
@@ -34,6 +37,10 @@ public class DisplayBlockEntityRenderer implements BlockEntityRenderer<DisplayBl
     private static final Text UNKNOWN_FORMAT_TEXT = Text.translatable("gui.webstreamer.display.status.unknownFormat");
     private static final Text NO_URL_TEXT = Text.translatable("gui.webstreamer.display.status.noUrl");
     
+    private static final Quaternionf ROTATE_90 = new Quaternionf(new AxisAngle4d(Math.PI / 2.0, 0.0, 1.0, 0.0));
+    private static final Quaternionf ROTATE_180 = new Quaternionf(new AxisAngle4d(Math.PI, 0.0, 1.0, 0.0));
+    private static final Quaternionf ROTATE_270 = new Quaternionf(new AxisAngle4d(Math.PI / 2.0 * 3.0, 0.0, 1.0, 0.0));
+
     private final GameRenderer gameRenderer = MinecraftClient.getInstance().gameRenderer;
     private final TextRenderer textRenderer;
     
@@ -163,22 +170,22 @@ public class DisplayBlockEntityRenderer implements BlockEntityRenderer<DisplayBl
                     matrices.translate(0.5f + halfWidth, 0.5f + halfHeight, 0.85f);
                 }
                 case SOUTH -> {
-                    matrices.multiply(Vec3f.POSITIVE_Y.getDegreesQuaternion(180));
+                    matrices.multiply(ROTATE_180);
                     matrices.translate(-0.5f + halfWidth, 0.5f + halfHeight, -0.15f);
                 }
                 case EAST -> {
-                    matrices.multiply(Vec3f.POSITIVE_Y.getDegreesQuaternion(270));
+                    matrices.multiply(ROTATE_270);
                     matrices.translate(0.5f + halfWidth, 0.5f + halfHeight, -0.15f);
                 }
                 case WEST -> {
-                    matrices.multiply(Vec3f.POSITIVE_Y.getDegreesQuaternion(90));
+                    matrices.multiply(ROTATE_90);
                     matrices.translate(-0.5f + halfWidth, 0.5f + halfHeight, 0.85f);
                 }
                 default -> throw new IllegalArgumentException();
             }
     
             matrices.scale(-scale, -scale, 1f);
-            this.textRenderer.draw(statusText, 0f, 0f, 0x00ffffff, false, matrices.peek().getPositionMatrix(), vertexConsumers, false, 0xBB222222, light);
+            this.textRenderer.draw(statusText, 0f, 0f, 0x00ffffff, false, matrices.peek().getPositionMatrix(), vertexConsumers, TextLayerType.NORMAL, 0xBB222222, light);
             matrices.pop();
     
         }

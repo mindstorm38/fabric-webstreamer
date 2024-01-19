@@ -4,22 +4,23 @@ import net.minecraft.nbt.NbtCompound;
 import net.minecraft.nbt.NbtString;
 
 import java.net.URI;
+import java.util.Objects;
 
 /**
  * <p>A raw display source can be used to directly set a URI to be returned, the same
  * URI is always returned and a method exists to change it.</p>
  */
-public class RawDisplaySource implements DisplaySource {
+public class RawDisplaySource extends DisplaySource {
 
     public static final String TYPE = "raw";
     
     private URI uri;
-
-    public RawDisplaySource(RawDisplaySource copy) {
-        this.uri = copy.uri;
-    }
     
     public RawDisplaySource() { }
+
+    public RawDisplaySource(URI uri) {
+        this.setUri(uri);
+    }
     
     /**
      * Set the internal URI to another value, maybe null.
@@ -47,7 +48,7 @@ public class RawDisplaySource implements DisplaySource {
     
     @Override
     public String getStatus() {
-        return this.uri.toString();
+        return Objects.toString(this.uri);
     }
     
     @Override

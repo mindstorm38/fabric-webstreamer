@@ -41,10 +41,6 @@ public class AsyncProcessor<FROM, TO, EXC extends Exception> {
         this.allowDuplicates = allowDuplicates;
     }
 
-    public AsyncProcessor(Converter<FROM, TO, EXC> converter) {
-        this(converter, false);
-    }
-
     @SuppressWarnings("unchecked")
     public void fetch(ExecutorService executor, BiConsumer<FROM, TO> onSuccess, BiConsumer<FROM, EXC> onError) {
 
