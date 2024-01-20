@@ -1,5 +1,7 @@
 package fr.theorozier.webstreamer.playlist;
 
+import org.jetbrains.annotations.NotNull;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -12,10 +14,11 @@ public class Playlist {
 	private final String channel;
 	private final ArrayList<PlaylistQuality> qualities = new ArrayList<>();
 	
-	public Playlist(String channel) {
+	public Playlist(@NotNull String channel) {
 		this.channel = channel;
 	}
-	
+
+	@NotNull
 	public String getChannel() {
 		return channel;
 	}
@@ -23,7 +26,8 @@ public class Playlist {
 	public void addQuality(PlaylistQuality quality) {
 		this.qualities.add(quality);
 	}
-	
+
+	@NotNull
 	public List<PlaylistQuality> getQualities() {
 		return qualities;
 	}
