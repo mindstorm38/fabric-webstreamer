@@ -1,11 +1,15 @@
 package fr.theorozier.webstreamer.display.screen;
 
+import fr.theorozier.webstreamer.WebStreamerClientMod;
 import fr.theorozier.webstreamer.display.DisplayBlockEntity;
 import fr.theorozier.webstreamer.display.DisplayNetworking;
 import fr.theorozier.webstreamer.display.source.DisplaySource;
 import fr.theorozier.webstreamer.display.source.RawDisplaySource;
 import fr.theorozier.webstreamer.display.source.TwitchDisplaySource;
+import fr.theorozier.webstreamer.playlist.Playlist;
 import fr.theorozier.webstreamer.playlist.PlaylistQuality;
+import fr.theorozier.webstreamer.twitch.TwitchClient;
+import fr.theorozier.webstreamer.util.AsyncProcessor;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.minecraft.client.gui.screen.Screen;
@@ -34,18 +38,20 @@ public class DisplayBlockScreen extends Screen {
     private static final Text SOURCE_TYPE_TWITCH_TEXT = Text.translatable("gui.webstreamer.display.sourceType.twitch");
     private static final Text URL_TEXT = Text.translatable("gui.webstreamer.display.url");
     private static final Text CHANNEL_TEXT = Text.translatable("gui.webstreamer.display.channel");
-    private static final Text MALFORMED_URL_TEXT = Text.translatable("gui.webstreamer.display.malformedUrl");
     private static final Text NO_QUALITY_TEXT = Text.translatable("gui.webstreamer.display.noQuality");
     private static final Text QUALITY_TEXT = Text.translatable("gui.webstreamer.display.quality");
     private static final String AUDIO_DISTANCE_TEXT_KEY = "gui.webstreamer.display.audioDistance";
     private static final String AUDIO_VOLUME_TEXT_KEY = "gui.webstreamer.display.audioVolume";
 
+    private static final Text ERR_PENDING = Text.translatable("gui.webstreamer.display.error.pending");
+    private static final Text ERR_INVALID_SIZE = Text.translatable("gui.webstreamer.display.error.invalidSize");
+    private static final Text ERR_TWITCH = Text.translatable("gui.webstreamer.display.error.twitch");
     private static final Text ERR_NO_TOKEN_TEXT = Text.translatable("gui.webstreamer.display.error.noToken");
     private static final Text ERR_CHANNEL_NOT_FOUND_TEXT = Text.translatable("gui.webstreamer.display.error.channelNotFound");
     private static final Text ERR_CHANNEL_OFFLINE_TEXT = Text.translatable("gui.webstreamer.display.error.channelOffline");
-    private static final String ERR_UNKNOWN_TEXT_KEY = "gui.webstreamer.display.error.unknown";
 
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
+    private final AsyncProcessor<String, Playlist, TwitchClient.PlaylistException> asyncPlaylist = new AsyncProcessor<>(WebStreamerClientMod.TWITCH_CLIENT::requestPlaylist, false);
 
     /** The block entity this screen is opened on. The following fields are temporaries to save later. */
     private final DisplayBlockEntity display;
@@ -54,12 +60,17 @@ public class DisplayBlockScreen extends Screen {
     private AudioDistanceSliderWidget audioDistanceSlider;
     private AudioVolumeSliderWidget audioVolumeSlider;
     private CyclingButtonWidget<SourceType> sourceTypeButton;
+    private TextWidget errorText;
+
     private TextFieldWidget rawUriField;
 
     private TextFieldWidget twitchChannelField;
     private QualitySliderWidget twitchQualitySlider;
+    private TextWidget twitchQualityText;
+    private Playlist twitchPlaylist;
+    private TwitchClient.PlaylistException twitchPlaylistExc;
 
-    private boolean dirty = false;
+    private boolean dirty;
     private ButtonWidget doneButton;
 
     public DisplayBlockScreen(DisplayBlockEntity display) {
@@ -72,7 +83,10 @@ public class DisplayBlockScreen extends Screen {
 
         int xHalf = this.width / 2;
         int yTop = 60;
-        int ySourceTop = 130;
+
+        if (this.height < 270) {
+            yTop = 30;
+        }
 
         TextWidget confText = new TextWidget(this.width, 0, CONF_TEXT, this.textRenderer);
         confText.setPosition(0, 20);
@@ -131,31 +145,17 @@ public class DisplayBlockScreen extends Screen {
         audioVolumeSlider = new AudioVolumeSliderWidget(xHalf + 4, yTop + 36, 150, 20, audioVolumeVal);
         audioVolumeSlider.setChangedListener(val -> this.dirty = true);
         this.addDrawableChild(audioVolumeSlider);
-        
-        this.doneButton = ButtonWidget.builder(ScreenTexts.DONE, button -> this.commitAndClose())
-            .dimensions(xHalf - 4 - 150, height / 4 + 120 + 12, 150, 20)
-            .build();
-        this.addDrawableChild(this.doneButton);
 
-        ButtonWidget cancelButton = ButtonWidget.builder(ScreenTexts.CANCEL, button -> this.close())
-            .dimensions(xHalf + 4, height / 4 + 120 + 12, 150, 20)
-            .build();
-        this.addDrawableChild(cancelButton);
+        int ySourceTop = yTop + 70;
+        int ySourceBottom = ySourceTop;
 
         if (sourceType == SourceType.RAW) {
 
-            // Raw sources
             TextWidget uriText = new TextWidget(URL_TEXT, this.textRenderer);
             uriText.setPosition(xHalf - 154, ySourceTop);
             uriText.setTextColor(0xA0A0A0);
             uriText.alignLeft();
             this.addDrawableChild(uriText);
-
-            TextWidget malformedUrlText = new TextWidget(MALFORMED_URL_TEXT, this.textRenderer);
-            malformedUrlText.setPosition(xHalf, ySourceTop + 50);
-            malformedUrlText.setTextColor(0xFF6052);
-            malformedUrlText.alignLeft();
-            this.addDrawableChild(malformedUrlText);
 
             String rawUriVal = "";
             if (rawUriField != null) {
@@ -171,26 +171,88 @@ public class DisplayBlockScreen extends Screen {
             rawUriField.setChangedListener(val -> this.dirty = true);
             this.addDrawableChild(rawUriField);
 
+            ySourceBottom = ySourceTop + 10 + 40;
+
         } else if (sourceType == SourceType.TWITCH) {
+
+            TextWidget channelText = new TextWidget(CHANNEL_TEXT, this.textRenderer);
+            channelText.setPosition(xHalf - 154, ySourceTop);
+            channelText.setTextColor(0xA0A0A0);
+            channelText.alignLeft();
+            this.addDrawableChild(channelText);
 
             String twitchChannelVal = "";
             if (twitchChannelField != null) {
                 twitchChannelVal = twitchChannelField.getText();
             } else if (source instanceof TwitchDisplaySource twitchSource) {
                 twitchChannelVal = twitchSource.getChannel();
+                this.asyncPlaylist.push(twitchChannelVal);
+            } else {
+                this.asyncPlaylist.push("");
             }
+
             twitchChannelField = new TextFieldWidget(this.textRenderer, xHalf - 154, ySourceTop + 10, 308, 20, Text.empty());
             twitchChannelField.setMaxLength(64);
             twitchChannelField.setText(twitchChannelVal);
-            twitchChannelField.setChangedListener(val -> this.dirty = true);
+            twitchChannelField.setChangedListener(val -> {
+                this.asyncPlaylist.push(val);
+                this.dirty = true;
+            });
             this.addDrawableChild(this.twitchChannelField);
+
+            twitchQualityText = new TextWidget(QUALITY_TEXT, this.textRenderer);
+            twitchQualityText.setPosition(xHalf - 154, ySourceTop + 40);
+            twitchQualityText.setTextColor(0xA0A0A0);
+            twitchQualityText.alignLeft();
+            this.addDrawableChild(twitchQualityText);
 
             twitchQualitySlider = new QualitySliderWidget(xHalf - 154, ySourceTop + 50, 308, 20, twitchQualitySlider);
             twitchQualitySlider.setChangedListener(val -> this.dirty = true);
             this.addDrawableChild(twitchQualitySlider);
 
+            ySourceBottom = ySourceTop + 50 + 40;
+
         }
 
+        errorText = new TextWidget(Text.empty(), this.textRenderer);
+        errorText.setDimensionsAndPosition(this.width, 0, 0, ySourceBottom);
+        errorText.setTextColor(0xFF6052);
+        errorText.visible = false;
+        this.addDrawableChild(errorText);
+
+        int yButtonTop = Math.min(Math.max(height / 4 + 120 + 12, ySourceBottom + 20), this.height - 25);
+
+        doneButton = ButtonWidget.builder(ScreenTexts.DONE, button -> this.commitAndClose())
+                .dimensions(xHalf - 4 - 150, yButtonTop, 150, 20)
+                .build();
+        doneButton.active = false;
+        this.addDrawableChild(doneButton);
+
+        ButtonWidget cancelButton = ButtonWidget.builder(ScreenTexts.CANCEL, button -> this.close())
+                .dimensions(xHalf + 4, yButtonTop, 150, 20)
+                .build();
+        this.addDrawableChild(cancelButton);
+
+        this.dirty = true;
+
+    }
+
+    /**
+     * Show that the current configuration is valid and the "done" button can be pressed.
+     */
+    private void showValid() {
+        this.doneButton.active = true;
+        this.errorText.visible = false;
+    }
+
+    /**
+     * Show that the current configuration contains an error and the "done" button cannot be presed.
+     * @param message The message for the error.
+     */
+    private void showError(Text message) {
+        this.doneButton.active = false;
+        this.errorText.setMessage(message);
+        this.errorText.visible = true;
     }
 
     /**
@@ -205,34 +267,73 @@ public class DisplayBlockScreen extends Screen {
             width = Float.parseFloat(this.widthField.getText());
             height = Float.parseFloat(this.heightField.getText());
         } catch (NumberFormatException e) {
-            this.doneButton.active = false;
+            this.showError(ERR_INVALID_SIZE);
             return;
         }
 
         URI rawUri = null;
+        String twitchChannel = null;
+        String twitchQuality = null;
 
         SourceType sourceType = this.sourceTypeButton.getValue();
+
         if (sourceType == SourceType.RAW) {
+
             String rawUriVal = this.rawUriField.getText();
             if (!rawUriVal.isEmpty()) {
                 try {
                     rawUri = new URI(rawUriVal);
                 } catch (URISyntaxException e) {
-                    this.doneButton.active = false;
+                    this.showError(Text.literal(e.getMessage()));
                     return;
                 }
             }
+
+        } else if (sourceType == SourceType.TWITCH) {
+
+            if (this.asyncPlaylist.requested() || !this.asyncPlaylist.idle()) {
+                this.showError(ERR_PENDING);
+                return;
+            } else if (this.twitchPlaylistExc != null) {
+                this.showError(switch (this.twitchPlaylistExc.getExceptionType()) {
+                    case UNKNOWN -> ERR_TWITCH;
+                    case NO_TOKEN -> ERR_NO_TOKEN_TEXT;
+                    case CHANNEL_NOT_FOUND -> ERR_CHANNEL_NOT_FOUND_TEXT;
+                    case CHANNEL_OFFLINE -> ERR_CHANNEL_OFFLINE_TEXT;
+                });
+                return;
+            } else if (this.twitchPlaylist == null) {
+                this.showError(Text.empty());
+                return;
+            }
+
+            this.twitchQualitySlider.visible = true;
+            this.twitchQualityText.visible = true;
+
+            PlaylistQuality twitchQualityRaw = this.twitchQualitySlider.getQuality();
+            if (twitchQualityRaw == null) {
+                throw new IllegalStateException("twitch quality should be present if playlist is present");
+            }
+
+            twitchChannel = this.twitchPlaylist.getChannel();
+            twitchQuality = twitchQualityRaw.name();
+
         }
 
-        this.doneButton.active = true;
+        this.showValid();
 
         if (commit) {
 
             this.display.setSize(width, height);
-            this.display.setAudioConfig(this.audioDistanceSlider.getDistance(), this.audioVolumeSlider.getVolume());
+
+            float audioDistance = this.audioDistanceSlider.getDistance();
+            float audioVolume = this.audioVolumeSlider.getVolume();
+            this.display.setAudioConfig(audioDistance, audioVolume);
 
             if (sourceType == SourceType.RAW) {
                 this.display.setSource(new RawDisplaySource(rawUri));
+            } else if (sourceType == SourceType.TWITCH) {
+                this.display.setSource(new TwitchDisplaySource(twitchChannel, twitchQuality));
             }
 
             DisplayNetworking.sendDisplayUpdate(this.display);
@@ -254,6 +355,29 @@ public class DisplayBlockScreen extends Screen {
     public void tick() {
 
         super.tick();
+
+        SourceType sourceType = this.sourceTypeButton.getValue();
+
+        if (sourceType == SourceType.TWITCH) {
+            this.asyncPlaylist.fetch(this.executor, pl -> {
+                boolean wasSet = this.twitchQualitySlider.getQuality() != null;
+                this.twitchPlaylist = pl;
+                this.twitchPlaylistExc = null;
+                this.twitchQualitySlider.setQualities(pl.getQualities());
+                // If the slider was new and the current source is a twitch one, set its quality.
+                if (!wasSet && this.display.getSource() instanceof TwitchDisplaySource twitchSource) {
+                    this.twitchQualitySlider.setQuality(twitchSource.getQuality());
+                }
+                this.dirty = true;
+            }, exc -> {
+                this.twitchPlaylist = null;
+                this.twitchPlaylistExc = exc;
+                this.twitchQualitySlider.setQualities(null);
+                this.dirty = true;
+            });
+        } else {
+            this.asyncPlaylist.fetch(this.executor, pl -> {}, exc -> {});
+        }
 
         if (this.dirty) {
             this.refresh(false);
@@ -503,6 +627,17 @@ public class DisplayBlockScreen extends Screen {
                     }
                     return;
                 }
+            }
+        }
+
+        public PlaylistQuality getQuality() {
+            if (this.qualities == null) {
+                return null;
+            }
+            try {
+                return this.qualities.get(this.qualityIndex);
+            } catch (IndexOutOfBoundsException e) {
+                return null;
             }
         }
 
