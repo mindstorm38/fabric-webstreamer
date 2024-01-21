@@ -13,7 +13,7 @@ configurable in the display configuration as well as its size.
 
 ## Supported systems
 For now, and in order to distribute a single JAR file, this mod supports a limited set of systems because of the size 
-of the [FFmpeg] and other native binaries that needs to be bundled with it:
+of the [FFmpeg] library and other native binaries that needs to be bundled with it:
 - Linux arm64
 - Linux x86_64
 - OSX arm64 (M1 support)
