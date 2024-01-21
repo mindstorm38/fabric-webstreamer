@@ -85,7 +85,7 @@ public class DisplayBlockScreen extends Screen {
         int yTop = 60;
 
         if (this.height < 270) {
-            yTop = 30;
+            yTop = 35;
         }
 
         TextWidget confText = new TextWidget(this.width, 0, CONF_TEXT, this.textRenderer);
@@ -171,7 +171,7 @@ public class DisplayBlockScreen extends Screen {
             rawUriField.setChangedListener(val -> this.dirty = true);
             this.addDrawableChild(rawUriField);
 
-            ySourceBottom = ySourceTop + 10 + 40;
+            ySourceBottom += 10 + 40;
 
         } else if (sourceType == SourceType.TWITCH) {
 
@@ -210,7 +210,7 @@ public class DisplayBlockScreen extends Screen {
             twitchQualitySlider.setChangedListener(val -> this.dirty = true);
             this.addDrawableChild(twitchQualitySlider);
 
-            ySourceBottom = ySourceTop + 50 + 40;
+            ySourceBottom += 50 + 40;
 
         }
 
@@ -228,7 +228,7 @@ public class DisplayBlockScreen extends Screen {
         doneButton.active = false;
         this.addDrawableChild(doneButton);
 
-        ButtonWidget cancelButton = ButtonWidget.builder(ScreenTexts.CANCEL, button -> this.close())
+        ButtonWidget cancelButton = ButtonWidget.builder(ScreenTexts.CANCEL, button -> this.cancelAndClose())
                 .dimensions(xHalf + 4, yButtonTop, 150, 20)
                 .build();
         this.addDrawableChild(cancelButton);
@@ -258,8 +258,9 @@ public class DisplayBlockScreen extends Screen {
     /**
      * Internal function to refresh the state of the "done" button, to activate it only if inputs are valid.
      * @param commit Set to true in order to commit these changes to the display block entity and send an update.
+     * @return True if the configuration is valid and, if requested, has been committed.
      */
-    private void refresh(boolean commit) {
+    private boolean refresh(boolean commit) {
 
         float width, height;
 
@@ -268,7 +269,7 @@ public class DisplayBlockScreen extends Screen {
             height = Float.parseFloat(this.heightField.getText());
         } catch (NumberFormatException e) {
             this.showError(ERR_INVALID_SIZE);
-            return;
+            return false;
         }
 
         URI rawUri = null;
@@ -285,7 +286,7 @@ public class DisplayBlockScreen extends Screen {
                     rawUri = new URI(rawUriVal);
                 } catch (URISyntaxException e) {
                     this.showError(Text.literal(e.getMessage()));
-                    return;
+                    return false;
                 }
             }
 
@@ -293,7 +294,7 @@ public class DisplayBlockScreen extends Screen {
 
             if (this.asyncPlaylist.requested() || !this.asyncPlaylist.idle()) {
                 this.showError(ERR_PENDING);
-                return;
+                return false;
             } else if (this.twitchPlaylistExc != null) {
                 this.showError(switch (this.twitchPlaylistExc.getExceptionType()) {
                     case UNKNOWN -> ERR_TWITCH;
@@ -301,10 +302,10 @@ public class DisplayBlockScreen extends Screen {
                     case CHANNEL_NOT_FOUND -> ERR_CHANNEL_NOT_FOUND_TEXT;
                     case CHANNEL_OFFLINE -> ERR_CHANNEL_OFFLINE_TEXT;
                 });
-                return;
+                return false;
             } else if (this.twitchPlaylist == null) {
                 this.showError(Text.empty());
-                return;
+                return false;
             }
 
             this.twitchQualitySlider.visible = true;
@@ -340,6 +341,8 @@ public class DisplayBlockScreen extends Screen {
 
         }
 
+        return true;
+
     }
 
     /**
@@ -347,7 +350,15 @@ public class DisplayBlockScreen extends Screen {
      * committed if any value is invalid.
      */
     private void commitAndClose() {
-        this.refresh(true);
+        if (this.refresh(true)) {
+            this.close();
+        }
+    }
+
+    /**
+     * Internal function to cancel configuration and close the screen.
+     */
+    private void cancelAndClose() {
         this.close();
     }
 
