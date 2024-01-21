@@ -62,11 +62,19 @@ public class DisplayBlock extends BlockWithEntity {
     @Nullable
     @Override
     public BlockState getPlacementState(ItemPlacementContext ctx) {
+
+        PlayerEntity playerEntity = ctx.getPlayer();
+        if (playerEntity != null && !canPlace(playerEntity)) {
+            return null;
+        }
+
         Direction dir = ctx.getSide();
         if (dir == Direction.DOWN || dir == Direction.UP) {
-            dir = ctx.getPlayerLookDirection().getOpposite();
+            dir = ctx.getHorizontalPlayerFacing().getOpposite();
         }
+
         return this.getDefaultState().with(Properties.HORIZONTAL_FACING, dir);
+
     }
     
     @Override
