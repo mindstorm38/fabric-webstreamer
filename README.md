@@ -1,9 +1,8 @@
 # Web Streamer
 A mod to display live streams in-game.
 
-Available on:
-- [Modrinth](https://modrinth.com/mod/webstreamer)
-- [CurseForge](https://www.curseforge.com/minecraft/mc-mods/webstreamer)
+[![Modrinth Downloads](https://img.shields.io/modrinth/dt/webstreamer?style=flat-square&label=Modrinth%20Downloads)](https://modrinth.com/mod/webstreamer)
+[![CurseForge Downloads](https://img.shields.io/curseforge/dt/628932?style=flat-square&label=CurseForge%20Downloads)](https://www.curseforge.com/minecraft/mc-mods/webstreamer)
 
 ## Web Display block
 This mod adds a single item -for now-, called "Web Display". It's a resizable and directional block that allows you to 
