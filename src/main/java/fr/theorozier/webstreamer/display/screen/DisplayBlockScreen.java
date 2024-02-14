@@ -215,7 +215,8 @@ public class DisplayBlockScreen extends Screen {
         }
 
         errorText = new TextWidget(Text.empty(), this.textRenderer);
-        errorText.setDimensionsAndPosition(this.width, 0, 0, ySourceBottom);
+        errorText.setWidth(this.width);
+        errorText.setPosition(0, ySourceBottom);
         errorText.setTextColor(0xFF6052);
         errorText.visible = false;
         this.addDrawableChild(errorText);
