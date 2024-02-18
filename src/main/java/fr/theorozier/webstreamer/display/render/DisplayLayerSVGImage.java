@@ -99,15 +99,21 @@ public class DisplayLayerSVGImage extends DisplayLayer {
 						throw new IOException("Could not load image: SVG Image is null");
 					}
 
-					// Convert SVG to BufferedImage
-					FloatSize size = svgDocument.size();
-					float w = size.width; //TODO: scale based on block's configured width
-					float h = size.height; //TODO: scale based on block's configured height
-//					float w = 32f * blockEntity.getHeight();
-//					float h = 32f * blockEntity.getHeight();
-					BufferedImage image = new BufferedImage((int) w,(int) h, Image.SCALE_SMOOTH);
+					// Calculate scaling factors based on block's configured width and height
+					float blockResolution = 512; // block resolution in pixels
+					int blockWidth = (int) (this.blockEntity.getWidth() * blockResolution); // Convert blocks to pixels
+					int blockHeight = (int) (this.blockEntity.getHeight() * blockResolution); // Convert blocks to pixels
+					FloatSize svgSize = svgDocument.size();
+					float scaleX = blockWidth / svgSize.width;
+					float scaleY = blockHeight / svgSize.height;
+
+					// Convert SVG to Buffered Image
+					BufferedImage image = new BufferedImage(blockWidth, blockHeight, BufferedImage.TYPE_INT_ARGB);
 					Graphics2D g = image.createGraphics();
-					svgDocument.render(null,g);
+					g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+					g.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
+					g.scale(scaleX, scaleY); // Apply scaling
+					svgDocument.render(null, g);
 					g.dispose();
 
 					// Convert BufferedImage to byte array
@@ -139,7 +145,7 @@ public class DisplayLayerSVGImage extends DisplayLayer {
 			throw new IOException(e);
 		}
 	}
-	
+
 	private record STBLoadedImage(ByteBuffer buffer, int width, int height, int channels) {
 		
 		private void free() {
