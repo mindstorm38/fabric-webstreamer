@@ -1,6 +1,7 @@
 package fr.theorozier.webstreamer.display.render;
 
 import com.mojang.blaze3d.systems.RenderSystem;
+import fr.theorozier.webstreamer.display.DisplayBlockEntity;
 import fr.theorozier.webstreamer.display.url.DisplayUrl;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import net.fabricmc.api.EnvType;
@@ -31,13 +32,15 @@ public class DisplayLayerManager {
     }
     
     @NotNull
-    private DisplayLayer newLayerForUrl(DisplayUrl url) throws UnknownFormatException {
+    private DisplayLayer newLayerForUrl(DisplayUrl url, DisplayBlockEntity blockEntity) throws UnknownFormatException {
         String path = url.uri().getPath();
         if (path != null) {
             if (path.endsWith(".m3u8")) {
                 return new DisplayLayerHls(url, this.res);
             } else if (path.endsWith(".jpeg") || path.endsWith(".jpg") || path.endsWith(".bmp") || path.endsWith(".png")) {
                 return new DisplayLayerImage(url, this.res);
+            } else if (path.endsWith(".svg")) {
+                return new DisplayLayerSVGImage(url, this.res, blockEntity);
             }
         }
         throw new UnknownFormatException();
@@ -51,13 +54,13 @@ public class DisplayLayerManager {
      * @throws UnknownFormatException The URL format is not recognized.
      */
     @NotNull
-    public DisplayLayer getLayerForUrl(DisplayUrl url) throws OutOfLayerException, UnknownFormatException {
+    public DisplayLayer getLayerForUrl(DisplayUrl url, DisplayBlockEntity blockEntity) throws OutOfLayerException, UnknownFormatException {
         DisplayLayer layer = this.layers.get(url.id());
         if (layer == null) {
             if (this.layers.size() >= MAX_LAYERS_COUNT) {
                 throw new OutOfLayerException();
             }
-            layer = this.newLayerForUrl(url);
+            layer = this.newLayerForUrl(url, blockEntity);
             this.layers.put(url.id(), layer);
         }
         return layer;

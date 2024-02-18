@@ -46,6 +46,7 @@ dependencies {
 	include "org.bytedeco:ffmpeg:5.0-${project.javacv_version}:macosx-x86_64"
 	include "org.bytedeco:ffmpeg:5.0-${project.javacv_version}:windows-x86_64"
 
+	implementation("com.github.weisj:jsvg:${project.jsvg_parser}")
 }
 
 processResources {
