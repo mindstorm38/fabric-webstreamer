@@ -95,7 +95,7 @@ public class DisplayBlockEntityRenderer implements BlockEntityRenderer<DisplayBl
         if (uri != null) {
             try {
                 
-                DisplayLayer layer = layerManager.getLayerForUri(uri);
+                DisplayLayer layer = layerManager.getLayer(uri, entity);
     
                 if (layer.isLost()) {
                     // Each time a display get here and the layer is lost, and then we request
@@ -116,8 +116,8 @@ public class DisplayBlockEntityRenderer implements BlockEntityRenderer<DisplayBl
                 layer.pushAudioSource(pos, pos.getManhattanDistance(this.gameRenderer.getCamera().getBlockPos()), audioDistance, audioVolume);
     
                 // Width/Height start coords
-                float ws = renderData.getWidthOffset();
-                float hs = renderData.getHeightOffset();
+                float ws = entity.getWidthOffset();
+                float hs = entity.getHeightOffset();
                 // Width/Height end coords
                 float we = ws + entity.getWidth();
                 float he = hs + entity.getHeight();

@@ -27,12 +27,6 @@ public class DisplayRenderData {
 	private boolean sourceDirty;
 	private Future<URI> futureUri;
 	private URI uri;
-
-	private float lastWidth = 0f;
-	private float lastHeight = 0f;
-	
-	private float widthOffset = 0f;
-	private float heightOffset = 0f;
 	
 	public DisplayRenderData(DisplayBlockEntity display) {
 		this.display = display;
@@ -81,24 +75,6 @@ public class DisplayRenderData {
 		
 		return this.uri;
 		
-	}
-	
-	public float getWidthOffset() {
-		float width = this.display.getWidth();
-		if (width != this.lastWidth) {
-			this.lastWidth = width;
-			this.widthOffset = this.display.calcWidthOffset();
-		}
-		return widthOffset;
-	}
-	
-	public float getHeightOffset() {
-		float height = this.display.getHeight();
-		if (height != this.lastHeight) {
-			this.lastHeight = height;
-			this.heightOffset = this.display.calcHeightOffset();
-		}
-		return heightOffset;
 	}
 
 }

@@ -69,11 +69,11 @@ public class DisplayBlockEntity extends BlockEntity {
         return height;
     }
     
-    public float calcWidthOffset() {
+    public float getWidthOffset() {
         return (this.width - 1) / -2f;
     }
     
-    public float calcHeightOffset() {
+    public float getHeightOffset() {
         return (this.height - 1) / -2f;
     }
     

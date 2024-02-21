@@ -13,6 +13,10 @@ import org.lwjgl.opengl.GL11;
 
 import java.net.URI;
 
+/**
+ * Concrete implementation of a display layer that actually provides a render layer
+ * and method to push audio sources.
+ */
 @Environment(EnvType.CLIENT)
 public abstract class DisplayLayer {
 	
@@ -36,36 +40,36 @@ public abstract class DisplayLayer {
 		this.renderLayer = new DisplayRenderLayer(this);
 		WebStreamerMod.LOGGER.info(makeLog("Allocate display layer for {}"), this.uri);
 	}
-	
+
+	/** Called on each reader tick. */
+	protected abstract void tick();
+
+	/**
+	 * Check if this layer is unused for too long, in such case
+	 * @param now The reference timestamp (monotonic nanoseconds from {@link System#nanoTime()}).
+	 * @return True if the layer is unused for too long.
+	 */
+	protected boolean isUnused(long now) {
+		return now - this.lastUse >= LAYER_UNUSED_TIMEOUT;
+	}
+
 	/** Called when the display layer is being freed, before garbage collection. */
 	protected void free() {
 		WebStreamerMod.LOGGER.info(makeLog("Free display layer for {}"), this.uri);
 		this.tex.clearGlId();
 	}
 	
-	/** Called on each reader tick. */
-	protected abstract void tick();
-	
 	/** Called for each display position and configuration. */
 	@SuppressWarnings("unused")
 	public void pushAudioSource(Vec3i pos, float dist, float audioDistance, float audioVolume) { }
-	
-	/**
-	 * Check if this layer is unused for too long, in such case
-	 * @param now The reference timestamp (monotonic nanoseconds from {@link System#nanoTime()}).
-	 * @return True if the layer is unused for too long.
-	 */
-	public boolean isUnused(long now) {
-		return now - this.lastUse >= LAYER_UNUSED_TIMEOUT;
-	}
-	
+
 	/**
 	 * @return True if this layer should be lost while currently used.
 	 */
 	public boolean isLost() {
 		return false;
 	}
-	
+
 	protected String makeLog(String message) {
 		return String.format("[%s:%08X] ", this.getClass().getSimpleName(), this.uri.hashCode()) + message;
 	}
