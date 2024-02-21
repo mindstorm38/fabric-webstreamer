@@ -6,6 +6,7 @@ import net.fabricmc.api.Environment;
 import org.jetbrains.annotations.NotNull;
 
 import java.net.URI;
+import java.util.ArrayList;
 import java.util.HashMap;
 
 /**
@@ -20,7 +21,9 @@ public class DisplayLayerManager {
     private static final long CLEANUP_INTERVAL = 5L * 1000000000L;
 
     /** Cache of layers for each unique URI (and potentially other parameters). */
-    private final HashMap<URI, DisplayLayer> layers = new HashMap<>();
+    private final HashMap<URI, DisplayMetaLayer> metaLayers = new HashMap<>();
+    /** List of unique layers. */
+    private final ArrayList<DisplayLayer> layers = new ArrayList<>();
 
     /** Common pools for shared and reusable heavy buffers. */
     private final DisplayLayerResources res = new DisplayLayerResources();
@@ -33,13 +36,13 @@ public class DisplayLayerManager {
     }
     
     @NotNull
-    private DisplayLayer newLayerForUri(URI uri) throws UnknownFormatException {
+    private DisplayLayer newLayer(URI uri) throws UnknownFormatException {
         String path = uri.getPath();
         if (path != null) {
             if (path.endsWith(".m3u8")) {
-                return new DisplayLayerHls(uri, this.res);
+                return DisplayMetaLayer.of(new DisplayLayerHls(uri, this.res));
             } else if (path.endsWith(".jpeg") || path.endsWith(".jpg") || path.endsWith(".bmp") || path.endsWith(".png")) {
-                return new DisplayLayerImage(uri, this.res);
+                return DisplayMetaLayer.of(new DisplayLayerImage(uri, this.res));
             }
         }
         throw new UnknownFormatException();
@@ -53,16 +56,17 @@ public class DisplayLayerManager {
      * @throws UnknownFormatException The URL format is not recognized.
      */
     @NotNull
-    public DisplayLayer getLayerForUri(URI uri) throws OutOfLayerException, UnknownFormatException {
-        DisplayLayer layer = this.layers.get(uri);
-        if (layer == null) {
-            if (this.layers.size() >= MAX_LAYERS_COUNT) {
+    public DisplayLayer getLayer(URI uri) throws OutOfLayerException, UnknownFormatException {
+        DisplayMetaLayer metaLayer = this.metaLayers.get(uri);
+        if (metaLayer == null) {
+            if (this.metaLayers.size() >= MAX_LAYERS_COUNT) {
+                // TODO: Rework, make it depends on the cost of layers (image lighter than HLS).
                 throw new OutOfLayerException();
             }
-            layer = this.newLayerForUri(uri);
-            this.layers.put(uri, layer);
+            metaLayer = this.newLayer(uri);
+            this.metaLayers.put(uri, metaLayer);
         }
-        return layer;
+        return metaLayer;
     }
 
     /**
@@ -72,7 +76,7 @@ public class DisplayLayerManager {
     public void tick() {
 
         RenderSystem.assertOnRenderThread();
-        this.layers.values().forEach(DisplayLayer::tick);
+        this.layers.forEach(DisplayLayer::tick);
 
         long now = System.nanoTime();
         if (now - this.lastCleanup >= CLEANUP_INTERVAL) {
@@ -88,7 +92,7 @@ public class DisplayLayerManager {
     public void cleanup() {
         RenderSystem.assertOnRenderThread();
         long now = System.nanoTime();
-        this.layers.values().removeIf(displayLayer -> {
+        this.layers.removeIf(displayLayer -> {
             if (displayLayer.isUnused(now)) {
                 displayLayer.free();
                 return true;
@@ -101,11 +105,11 @@ public class DisplayLayerManager {
      * Free and remove all layers.
      */
     public void clear() {
-        this.layers.values().forEach(DisplayLayer::free);
+        this.layers.forEach(DisplayLayer::free);
         this.layers.clear();
     }
     
     public static class OutOfLayerException extends Exception {}
     public static class UnknownFormatException extends Exception {}
-    
+
 }
