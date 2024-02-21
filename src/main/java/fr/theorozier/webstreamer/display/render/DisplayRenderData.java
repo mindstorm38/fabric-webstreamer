@@ -1,10 +1,8 @@
 package fr.theorozier.webstreamer.display.render;
 
-import fr.theorozier.webstreamer.WebStreamerClientMod;
 import fr.theorozier.webstreamer.WebStreamerMod;
 import fr.theorozier.webstreamer.display.DisplayBlockEntity;
 import fr.theorozier.webstreamer.display.source.DisplaySource;
-import fr.theorozier.webstreamer.display.url.DisplayUrl;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 
@@ -27,9 +25,9 @@ public class DisplayRenderData {
 	private final DisplayBlockEntity display;
 	
 	private boolean sourceDirty;
-	private Future<URI> futureUrl;
-	private DisplayUrl url;
-	
+	private Future<URI> futureUri;
+	private URI uri;
+
 	private float lastWidth = 0f;
 	private float lastHeight = 0f;
 	
@@ -56,33 +54,32 @@ public class DisplayRenderData {
 	 * @param executor The executor to execute async code on.
 	 * @return Return a non-null URL when loaded.
 	 */
-	public DisplayUrl getUrl(ExecutorService executor) {
+	public URI getUri(ExecutorService executor) {
 		
 		if (this.sourceDirty) {
-			this.url = null;
-			this.futureUrl = executor.submit(() -> this.display.getSource().getUri());
+			this.uri = null;
+			this.futureUri = executor.submit(() -> this.display.getSource().getUri());
 			this.sourceDirty = false;
 		}
 		
-		if (this.futureUrl != null && this.futureUrl.isDone()) {
+		if (this.futureUri != null && this.futureUri.isDone()) {
 			try {
-				URI uri = this.futureUrl.get();
-				if (uri == null) {
+				this.uri = this.futureUri.get();
+				if (this.uri == null) {
 					WebStreamerMod.LOGGER.info(this.display.makeLog("No URI found for the display."));
 				} else {
-					this.url = WebStreamerClientMod.DISPLAY_URLS.allocUri(uri);
-					WebStreamerMod.LOGGER.info(this.display.makeLog("Allocated a new display url {}."), this.url);
+					WebStreamerMod.LOGGER.info(this.display.makeLog("Allocated a new display url {}."), this.uri);
 				}
 			} catch (InterruptedException | CancellationException e) {
 				// Cancel should not happen.
 			} catch (ExecutionException e) {
 				WebStreamerMod.LOGGER.warn(this.display.makeLog("Unhandled error while getting source uri."), e);
 			} finally {
-				this.futureUrl = null;
+				this.futureUri = null;
 			}
 		}
 		
-		return this.url;
+		return this.uri;
 		
 	}
 	

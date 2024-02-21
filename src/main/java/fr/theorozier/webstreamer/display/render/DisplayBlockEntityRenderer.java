@@ -3,7 +3,6 @@ package fr.theorozier.webstreamer.display.render;
 import fr.theorozier.webstreamer.WebStreamerClientMod;
 import fr.theorozier.webstreamer.WebStreamerMod;
 import fr.theorozier.webstreamer.display.DisplayBlockEntity;
-import fr.theorozier.webstreamer.display.url.DisplayUrl;
 import fr.theorozier.webstreamer.mixin.WorldRendererInvoker;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
@@ -28,6 +27,7 @@ import org.joml.AxisAngle4d;
 import org.joml.Matrix4f;
 import org.joml.Quaternionf;
 
+import java.net.URI;
 import java.util.stream.StreamSupport;
 
 @Environment(EnvType.CLIENT)
@@ -56,12 +56,17 @@ public class DisplayBlockEntityRenderer implements BlockEntityRenderer<DisplayBl
         // block entity, so it will always be present and is lazily instantiated and will
         // last as long as the block entity.
         DisplayRenderData renderData = (DisplayRenderData) entity.getRenderData();
+        if (renderData == null) {
+            // If we are running on client side, we should NEVER get here.
+            throw new IllegalStateException("null render data on client side is a programming error");
+        }
+
         DisplayLayerManager layerManager = WebStreamerClientMod.DISPLAY_LAYERS;
         Text statusText = null;
         
         // Asynchronously get the URI of this display, if the URI is not yet available,
         // null is just returned.
-        DisplayUrl url = renderData.getUrl(layerManager.getResources().getExecutor());
+        URI uri = renderData.getUri(layerManager.getResources().getExecutor());
         
         // If the player is currently holding a display item, we draw the outline shape
         // of the display block, we also display as status text the source status.
@@ -87,10 +92,10 @@ public class DisplayBlockEntityRenderer implements BlockEntityRenderer<DisplayBl
             
         }
         
-        if (url != null) {
+        if (uri != null) {
             try {
                 
-                DisplayLayer layer = layerManager.getLayerForUrl(url);
+                DisplayLayer layer = layerManager.getLayerForUri(uri);
     
                 if (layer.isLost()) {
                     // Each time a display get here and the layer is lost, and then we request

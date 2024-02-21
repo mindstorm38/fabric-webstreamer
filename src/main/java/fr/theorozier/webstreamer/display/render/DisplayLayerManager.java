@@ -1,11 +1,12 @@
 package fr.theorozier.webstreamer.display.render;
 
 import com.mojang.blaze3d.systems.RenderSystem;
-import fr.theorozier.webstreamer.display.url.DisplayUrl;
-import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import org.jetbrains.annotations.NotNull;
+
+import java.net.URI;
+import java.util.HashMap;
 
 /**
  * This class is responsible for caching and keeping the number of layer to the minimum.
@@ -17,9 +18,10 @@ public class DisplayLayerManager {
     private static final int MAX_LAYERS_COUNT = 20;
     /** Interval of cleanups for unused display layers. */
     private static final long CLEANUP_INTERVAL = 5L * 1000000000L;
- 
-    private final Int2ObjectOpenHashMap<DisplayLayer> layers = new Int2ObjectOpenHashMap<>();
-    
+
+    /** Cache of layers for each unique URI (and potentially other parameters). */
+    private final HashMap<URI, DisplayLayer> layers = new HashMap<>();
+
     /** Common pools for shared and reusable heavy buffers. */
     private final DisplayLayerResources res = new DisplayLayerResources();
 
@@ -31,34 +33,34 @@ public class DisplayLayerManager {
     }
     
     @NotNull
-    private DisplayLayer newLayerForUrl(DisplayUrl url) throws UnknownFormatException {
-        String path = url.uri().getPath();
+    private DisplayLayer newLayerForUri(URI uri) throws UnknownFormatException {
+        String path = uri.getPath();
         if (path != null) {
             if (path.endsWith(".m3u8")) {
-                return new DisplayLayerHls(url, this.res);
+                return new DisplayLayerHls(uri, this.res);
             } else if (path.endsWith(".jpeg") || path.endsWith(".jpg") || path.endsWith(".bmp") || path.endsWith(".png")) {
-                return new DisplayLayerImage(url, this.res);
+                return new DisplayLayerImage(uri, this.res);
             }
         }
         throw new UnknownFormatException();
     }
     
     /**
-     * Get a display layer from the given URL, the same URL returns the same layer.
-     * @param url The display URL.
-     * @return The layer specific to the given URL.
+     * Get a display layer from the given URI, the same URI returns the same layer.
+     * @param uri The display URI.
+     * @return The layer specific to the given URI.
      * @throws OutOfLayerException Maximum layers count has been reached.
      * @throws UnknownFormatException The URL format is not recognized.
      */
     @NotNull
-    public DisplayLayer getLayerForUrl(DisplayUrl url) throws OutOfLayerException, UnknownFormatException {
-        DisplayLayer layer = this.layers.get(url.id());
+    public DisplayLayer getLayerForUri(URI uri) throws OutOfLayerException, UnknownFormatException {
+        DisplayLayer layer = this.layers.get(uri);
         if (layer == null) {
             if (this.layers.size() >= MAX_LAYERS_COUNT) {
                 throw new OutOfLayerException();
             }
-            layer = this.newLayerForUrl(url);
-            this.layers.put(url.id(), layer);
+            layer = this.newLayerForUri(uri);
+            this.layers.put(uri, layer);
         }
         return layer;
     }
