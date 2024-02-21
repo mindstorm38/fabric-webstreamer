@@ -2,7 +2,6 @@ package fr.theorozier.webstreamer.display.render;
 
 import com.mojang.blaze3d.platform.TextureUtil;
 import fr.theorozier.webstreamer.WebStreamerMod;
-import fr.theorozier.webstreamer.display.url.DisplayUrl;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import org.apache.commons.io.IOUtils;
@@ -13,6 +12,7 @@ import org.lwjgl.system.MemoryUtil;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.URI;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.ByteBuffer;
@@ -31,8 +31,8 @@ public class DisplayLayerImage extends DisplayLayer {
 	private boolean imageUploaded = false;
 	private Future<STBLoadedImage> futureImage;
 	
-	public DisplayLayerImage(DisplayUrl url, DisplayLayerResources res) {
-		super(url, res);
+	public DisplayLayerImage(URI uri, DisplayLayerResources res) {
+		super(uri, res);
 	}
 	
 	@Override
@@ -75,7 +75,7 @@ public class DisplayLayerImage extends DisplayLayer {
 	
 	private STBLoadedImage requestImageBlocking() throws IOException {
 		try {
-			HttpRequest request = HttpRequest.newBuilder(this.url.uri()).GET().timeout(Duration.ofSeconds(5)).build();
+			HttpRequest request = HttpRequest.newBuilder(this.uri).GET().timeout(Duration.ofSeconds(5)).build();
 			HttpResponse<InputStream> res = this.res.getHttpClient().send(request, HttpResponse.BodyHandlers.ofInputStream());
 			if (res.statusCode() == 200) {
 				InputStream stream = res.body();

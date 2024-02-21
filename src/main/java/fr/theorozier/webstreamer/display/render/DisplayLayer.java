@@ -2,7 +2,6 @@ package fr.theorozier.webstreamer.display.render;
 
 import com.mojang.blaze3d.systems.RenderSystem;
 import fr.theorozier.webstreamer.WebStreamerMod;
-import fr.theorozier.webstreamer.display.url.DisplayUrl;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.minecraft.client.render.RenderLayer;
@@ -12,6 +11,8 @@ import net.minecraft.client.render.VertexFormats;
 import net.minecraft.util.math.Vec3i;
 import org.lwjgl.opengl.GL11;
 
+import java.net.URI;
+
 @Environment(EnvType.CLIENT)
 public abstract class DisplayLayer {
 	
@@ -19,26 +20,26 @@ public abstract class DisplayLayer {
 	protected static final long LAYER_UNUSED_TIMEOUT = 15L * 1000000000L;
 	
 	// Common //
-	protected final DisplayUrl url;
+	protected final URI uri;
 	protected final DisplayLayerResources res;
 	protected final DisplayTexture tex;
-	protected final DisplayRenderLayer renderLayer;
+	private final DisplayRenderLayer renderLayer;
 	
 	// Timing //
 	/** Time in nanoseconds (monotonic) of the last use. */
 	protected long lastUse = 0;
 	
-	public DisplayLayer(DisplayUrl url, DisplayLayerResources res) {
-		this.url = url;
+	public DisplayLayer(URI uri, DisplayLayerResources res) {
+		this.uri = uri;
 		this.res = res;
 		this.tex = new DisplayTexture();
 		this.renderLayer = new DisplayRenderLayer(this);
-		WebStreamerMod.LOGGER.info(makeLog("Allocate display layer for {}"), this.url);
+		WebStreamerMod.LOGGER.info(makeLog("Allocate display layer for {}"), this.uri);
 	}
 	
 	/** Called when the display layer is being freed, before garbage collection. */
 	protected void free() {
-		WebStreamerMod.LOGGER.info(makeLog("Free display layer for {}"), this.url);
+		WebStreamerMod.LOGGER.info(makeLog("Free display layer for {}"), this.uri);
 		this.tex.clearGlId();
 	}
 	
@@ -66,7 +67,7 @@ public abstract class DisplayLayer {
 	}
 	
 	protected String makeLog(String message) {
-		return String.format("[%s:%08X] ", this.getClass().getSimpleName(), this.url.uri().hashCode()) + message;
+		return String.format("[%s:%08X] ", this.getClass().getSimpleName(), this.uri.hashCode()) + message;
 	}
 	
 	public RenderLayer getRenderLayer() {

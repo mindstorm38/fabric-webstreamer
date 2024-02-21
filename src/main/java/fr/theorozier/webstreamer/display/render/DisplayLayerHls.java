@@ -2,7 +2,6 @@ package fr.theorozier.webstreamer.display.render;
 
 import fr.theorozier.webstreamer.WebStreamerMod;
 import fr.theorozier.webstreamer.display.audio.AudioStreamingSource;
-import fr.theorozier.webstreamer.display.url.DisplayUrl;
 import fr.theorozier.webstreamer.util.AsyncMap;
 import fr.theorozier.webstreamer.util.AsyncProcessor;
 import io.lindstrom.m3u8.model.MediaPlaylist;
@@ -93,9 +92,9 @@ public class DisplayLayerHls extends DisplayLayer {
 	/** Time in nanoseconds (monotonic) of the last internal cleanup. */
 	private long lastCleanup = 0;
 
-    public DisplayLayerHls(DisplayUrl url, DisplayLayerResources res) {
+    public DisplayLayerHls(URI uri, DisplayLayerResources res) {
 
-		super(url, res);
+		super(uri, res);
 		
         this.hlsParser = new MediaPlaylistParser(ParsingMode.LENIENT);
 		this.profiler = new ProfilerSystem(System::nanoTime, () -> 0, true);
@@ -196,7 +195,7 @@ public class DisplayLayerHls extends DisplayLayer {
 	/** Request the playlist if not already requesting and if this request is not pointless. */
 	private void requestPlaylist(long now) {
 		if (now >= this.playlistNextRequestTimestamp) {
-			this.asyncPlaylist.push(this.url.uri());
+			this.asyncPlaylist.push(this.uri);
 			this.playlistNextRequestTimestamp = now + this.playlistRequestInterval;
 		}
 	}
@@ -245,7 +244,7 @@ public class DisplayLayerHls extends DisplayLayer {
 	private void requestGrabber(int index) {
 		MediaSegment seg = this.getSegment(index);
 		if (seg != null) {
-			this.asyncGrabbers.push(this.res.getExecutor(), this.url.getContextUri(seg.uri()), index);
+			this.asyncGrabbers.push(this.res.getExecutor(), this.uri.resolve(seg.uri()), index);
 		}
 	}
 
