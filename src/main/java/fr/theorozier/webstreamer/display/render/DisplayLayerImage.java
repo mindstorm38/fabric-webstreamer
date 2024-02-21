@@ -72,31 +72,13 @@ public class DisplayLayerImage extends DisplayLayer {
 		}
 		
 	}
-	
-	private STBLoadedImage requestImageBlocking() throws IOException {
+
+	protected STBLoadedImage requestImageBlocking() throws IOException {
 		try {
 			HttpRequest request = HttpRequest.newBuilder(this.uri).GET().timeout(Duration.ofSeconds(5)).build();
 			HttpResponse<InputStream> res = this.res.getHttpClient().send(request, HttpResponse.BodyHandlers.ofInputStream());
 			if (res.statusCode() == 200) {
-				InputStream stream = res.body();
-				ByteBuffer buf = null;
-				try {
-					buf = TextureUtil.readResource(stream);
-					buf.rewind();
-					try (MemoryStack memoryStack = MemoryStack.stackPush()){
-						IntBuffer width = memoryStack.mallocInt(1);
-						IntBuffer height = memoryStack.mallocInt(1);
-						IntBuffer channels = memoryStack.mallocInt(1);
-						ByteBuffer stbBuf = STBImage.stbi_load_from_memory(buf, width, height, channels, STBImage.STBI_rgb_alpha);
-						if (stbBuf == null) {
-							throw new IOException("Could not load image: " + STBImage.stbi_failure_reason());
-						}
-						return new STBLoadedImage(stbBuf, width.get(0), height.get(0), channels.get(0));
-					}
-				} finally {
-					MemoryUtil.memFree(buf);
-					IOUtils.closeQuietly(stream);
-				}
+				return this.readImageBlocking(res.body());
 			} else {
 				throw new IOException("HTTP request failed, status code: " + res.statusCode());
 			}
@@ -104,9 +86,30 @@ public class DisplayLayerImage extends DisplayLayer {
 			throw new IOException(e);
 		}
 	}
-	
-	private record STBLoadedImage(ByteBuffer buffer, int width, int height, int channels) {
-		
+
+	protected STBLoadedImage readImageBlocking(InputStream stream) throws IOException {
+		ByteBuffer buf = null;
+		try {
+			buf = TextureUtil.readResource(stream);
+			buf.rewind();
+			try (MemoryStack memoryStack = MemoryStack.stackPush()){
+				IntBuffer width = memoryStack.mallocInt(1);
+				IntBuffer height = memoryStack.mallocInt(1);
+				IntBuffer channels = memoryStack.mallocInt(1);
+				ByteBuffer stbBuf = STBImage.stbi_load_from_memory(buf, width, height, channels, STBImage.STBI_rgb_alpha);
+				if (stbBuf == null) {
+					throw new IOException("Could not load image: " + STBImage.stbi_failure_reason());
+				}
+				return new STBLoadedImage(stbBuf, width.get(0), height.get(0), channels.get(0));
+			}
+		} finally {
+			MemoryUtil.memFree(buf);
+			IOUtils.closeQuietly(stream);
+		}
+	}
+
+	protected record STBLoadedImage(ByteBuffer buffer, int width, int height, int channels) {
+
 		private void free() {
 			STBImage.stbi_image_free(this.buffer);
 		}
