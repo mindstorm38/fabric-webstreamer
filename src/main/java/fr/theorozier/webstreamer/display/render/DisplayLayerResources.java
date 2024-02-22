@@ -17,7 +17,7 @@ import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * Different pool types given to {@link DisplayLayerHls} as a centralized way of getting
+ * Different pool types given to {@link DisplayLayerRenderHls} as a centralized way of getting
  * access to heavy heap buffers. This also provides a thread pool executor and an HTTP
  * client in order to reduce overhead when creating them.
  */

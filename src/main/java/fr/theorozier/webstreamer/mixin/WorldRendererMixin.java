@@ -23,7 +23,10 @@ public class WorldRendererMixin {
 	@Inject(at = @At("HEAD"), method = "setWorld(Lnet/minecraft/client/world/ClientWorld;)V")
 	public void setWorld(@Nullable ClientWorld world, CallbackInfo info) {
 		if (world == null) {
-			WebStreamerClientMod.DISPLAY_LAYERS.clear();
+			// Zero is special value for forcing cleanup.
+			if (!WebStreamerClientMod.DISPLAY_LAYERS.cleanup(0)) {
+				throw new IllegalStateException("cleanup with special zero value should be successful");
+			}
 		}
 	}
 	
