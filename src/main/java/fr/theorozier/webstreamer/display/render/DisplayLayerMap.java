@@ -1,19 +1,26 @@
 package fr.theorozier.webstreamer.display.render;
 
-import fr.theorozier.webstreamer.display.DisplayBlockEntity;
+import fr.theorozier.webstreamer.display.render.DisplayLayer;
+import fr.theorozier.webstreamer.display.render.DisplayLayerNode;
 import org.jetbrains.annotations.NotNull;
 
-import java.net.URI;
 import java.util.HashMap;
 
-public abstract class DisplayLayerMap<K> implements DisplayLayer {
+/**
+ * A special, yet abstract, display layer node that contains multiple layers, mapped
+ * to a specific key type. Abstract methods must be implemented by subclasses to
+ * provide the key and to instantiate a new layer if the key is existing.
+ *
+ * @param <K> The key to map children nodes to.
+ */
+public abstract class DisplayLayerMap<K> implements DisplayLayerNode {
 
-    private final HashMap<K, DisplayLayer> layers = new HashMap<>();
+    private final HashMap<K, DisplayLayerNode> layers = new HashMap<>();
 
     @Override
     public void tick() {
         // Simply delegate.
-        this.layers.values().forEach(DisplayLayer::tick);
+        this.layers.values().forEach(DisplayLayerNode::tick);
     }
 
     @Override
@@ -24,24 +31,24 @@ public abstract class DisplayLayerMap<K> implements DisplayLayer {
 
     @Override
     public int cost() {
-        return this.layers.values().stream().mapToInt(DisplayLayer::cost).sum();
+        return this.layers.values().stream().mapToInt(DisplayLayerNode::cost).sum();
     }
 
     @Override
-    public DisplayLayerRender getRender(URI uri, DisplayBlockEntity display) throws OutOfLayerException, UnknownFormatException {
-        K key = this.getKey(uri, display);
-        DisplayLayer layer = this.layers.get(key);
+    public DisplayLayer getLayer(Key key) throws OutOfLayerException, UnknownFormatException {
+        K layerKey = this.getLayerKey(key);
+        DisplayLayerNode layer = this.layers.get(layerKey);
         if (layer == null) {
-            layer = this.getNewLayer(uri, display);
-            this.layers.put(key, layer);
+            layer = this.getNewLayer(key);
+            this.layers.put(layerKey, layer);
         }
-        return layer.getRender(uri, display);
+        return layer.getLayer(key);
     }
 
     @NotNull
-    protected abstract K getKey(URI uri, DisplayBlockEntity display);
+    protected abstract K getLayerKey(Key key);
 
     @NotNull
-    protected abstract DisplayLayer getNewLayer(URI uri, DisplayBlockEntity display) throws OutOfLayerException, UnknownFormatException;
+    protected abstract DisplayLayerNode getNewLayer(Key key) throws OutOfLayerException, UnknownFormatException;
 
 }

@@ -29,7 +29,7 @@ import java.util.stream.Stream;
  * this is not checked so user have to check this!
  */
 @Environment(EnvType.CLIENT)
-public class DisplayLayerRenderHls extends DisplayLayerRender {
+public class DisplayLayerHls extends DisplayLayerSimple {
 
 	/** The latency forced, avoiding display freezes for loading. */
 	private static final double SAFE_LATENCY = 8.0;
@@ -92,7 +92,7 @@ public class DisplayLayerRenderHls extends DisplayLayerRender {
 	/** Time in nanoseconds (monotonic) of the last internal cleanup. */
 	private long lastCleanup = 0;
 
-    public DisplayLayerRenderHls(URI uri, DisplayLayerResources res) {
+    public DisplayLayerHls(URI uri, DisplayLayerResources res) {
 
 		super(uri, res);
 		

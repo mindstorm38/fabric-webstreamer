@@ -23,7 +23,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 
 @Environment(EnvType.CLIENT)
-public class DisplayLayerRenderImage extends DisplayLayerRender {
+public class DisplayLayerImage extends DisplayLayerSimple {
 	
 	private static final long FAILING_IMAGE_REQUEST_INTERVAL = 30L * 1000000000L;
 	
@@ -31,7 +31,7 @@ public class DisplayLayerRenderImage extends DisplayLayerRender {
 	private boolean imageUploaded = false;
 	private Future<STBLoadedImage> futureImage;
 	
-	public DisplayLayerRenderImage(URI uri, DisplayLayerResources res) {
+	public DisplayLayerImage(URI uri, DisplayLayerResources res) {
 		super(uri, res);
 	}
 

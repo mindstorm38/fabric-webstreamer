@@ -1,50 +1,33 @@
 package fr.theorozier.webstreamer.display.render;
 
-import fr.theorozier.webstreamer.display.DisplayBlockEntity;
-
-import java.net.URI;
+import net.minecraft.client.render.RenderLayer;
+import net.minecraft.util.math.Vec3i;
 
 /**
- * An abstract display layer, not guaranteed to provide render layer, it can also be
- * used for grouping layers by specific properties.
+ * An actual display layer.
  */
 public interface DisplayLayer {
 
     /**
-     * Called on each reader tick.
-     */
-    void tick();
-
-    /**
-     * This is called to clean up the layer if it has not been used in a long time.
-     * Note that the implementor is responsible for freeing resources, if needed!
+     * Each display entity that is using this layer will push its position to this function,
+     * the distance from the local player and the audio parameters of the display. This is
+     * used to avoid playing the same sound multiple time.
      *
-     * @param now The time in monotonic nanosecond when the cleanup was started. If
-     *            0 is given then the cleanup method is forced to free the layer and
-     *            therefore return true.
-     * @return True if this display layer can be forgotten by its manager.
+     * @param pos The position of the display.
+     * @param dist The distance between the local player and the display.
+     * @param audioDistance The audio distance configured for the display.
+     * @param audioVolume The audio volume configured for the display.
      */
-    boolean cleanup(long now);
+    void pushAudioSource(Vec3i pos, float dist, float audioDistance, float audioVolume);
 
     /**
-     * @return The cost of this layer, this is called once on insertion, and compared
-     * to see if any more layer can be added to the scene. For comparison, the cost of
-     * a static image layer that does a single request at initialization is 1.
+     * @return True if this layer should be lost while currently used.
      */
-    int cost();
+    boolean isLost();
 
     /**
-     * Get the actual render layer from this abstract layer to use for rendering.
-     * @param uri The computed URI of the display.
-     * @param display The display block entity.
-     * @return The display layer,
-     * @throws OutOfLayerException If no more layer can be allocated.
-     * @throws UnknownFormatException When the combination of URI and display
-     * are not valid for creating a display layer.
+     * @return The Minecraft render layer using for the rendering pipeline.
      */
-    DisplayLayerRender getRender(URI uri, DisplayBlockEntity display) throws OutOfLayerException, UnknownFormatException;
-
-    class OutOfLayerException extends Exception {}
-    class UnknownFormatException extends Exception {}
+    RenderLayer getRenderLayer();
 
 }
