@@ -60,14 +60,14 @@ public class DisplayRenderData {
 			try {
 				this.uri = this.futureUri.get();
 				if (this.uri == null) {
-					WebStreamerMod.LOGGER.info(this.display.makeLog("No URI found for the display."));
+					WebStreamerMod.LOGGER.info(this.display.makeLog("Caching no display URI."));
 				} else {
-					WebStreamerMod.LOGGER.info(this.display.makeLog("Allocated a new display url {}."), this.uri);
+					WebStreamerMod.LOGGER.info(this.display.makeLog("Caching display URI: {}"), this.uri);
 				}
 			} catch (InterruptedException | CancellationException e) {
 				// Cancel should not happen.
 			} catch (ExecutionException e) {
-				WebStreamerMod.LOGGER.warn(this.display.makeLog("Unhandled error while getting source uri."), e);
+				WebStreamerMod.LOGGER.warn(this.display.makeLog("Error caching display URI."), e);
 			} finally {
 				this.futureUri = null;
 			}

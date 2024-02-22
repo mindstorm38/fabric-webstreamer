@@ -1,5 +1,6 @@
 package fr.theorozier.webstreamer.display.render;
 
+import fr.theorozier.webstreamer.WebStreamerMod;
 import fr.theorozier.webstreamer.display.render.DisplayLayer;
 import fr.theorozier.webstreamer.display.render.DisplayLayerNode;
 import org.jetbrains.annotations.NotNull;
