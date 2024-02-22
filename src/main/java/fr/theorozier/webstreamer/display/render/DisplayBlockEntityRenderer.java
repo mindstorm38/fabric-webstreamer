@@ -94,8 +94,8 @@ public class DisplayBlockEntityRenderer implements BlockEntityRenderer<DisplayBl
         
         if (uri != null) {
             try {
-                
-                DisplayLayerRender layer = layerManager.getRender(uri, entity);
+
+                DisplayLayer layer = layerManager.getLayer(new DisplayLayerNode.Key(uri, entity));
     
                 if (layer.isLost()) {
                     // Each time a display get here and the layer is lost, and then we request

@@ -2,7 +2,6 @@ package fr.theorozier.webstreamer.display.render;
 
 import com.mojang.blaze3d.systems.RenderSystem;
 import fr.theorozier.webstreamer.WebStreamerMod;
-import fr.theorozier.webstreamer.display.DisplayBlockEntity;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.minecraft.client.render.RenderLayer;
@@ -19,7 +18,7 @@ import java.net.URI;
  * and method to push audio sources.
  */
 @Environment(EnvType.CLIENT)
-public abstract class DisplayLayerRender implements DisplayLayer {
+public abstract class DisplayLayerSimple implements DisplayLayerNode, DisplayLayer {
 	
 	/** The timeout for a layer to be considered unused */
 	protected static final long LAYER_UNUSED_TIMEOUT = 15L * 1000000000L;
@@ -34,7 +33,7 @@ public abstract class DisplayLayerRender implements DisplayLayer {
 	/** Time in nanoseconds (monotonic) of the last use. */
 	protected long lastUse = 0;
 	
-	public DisplayLayerRender(URI uri, DisplayLayerResources res) {
+	public DisplayLayerSimple(URI uri, DisplayLayerResources res) {
 		this.uri = uri;
 		this.res = res;
 		this.tex = new DisplayTexture();
@@ -60,31 +59,34 @@ public abstract class DisplayLayerRender implements DisplayLayer {
 	public abstract int cost();
 
 	@Override
-	public DisplayLayerRender getRender(URI uri, DisplayBlockEntity display) {
+	public DisplayLayer getLayer(Key key) {
 		return this;
 	}
 
-	/** Called for each display position and configuration. */
-	@SuppressWarnings("unused")
+	@Override
 	public void pushAudioSource(Vec3i pos, float dist, float audioDistance, float audioVolume) { }
 
-	/**
-	 * @return True if this layer should be lost while currently used.
-	 */
+	@Override
 	public boolean isLost() {
 		return false;
 	}
 
-	protected String makeLog(String message) {
-		return String.format("[%s:%08X] ", this.getClass().getSimpleName(), this.uri.hashCode()) + message;
-	}
-	
+	@Override
 	public RenderLayer getRenderLayer() {
 		return this.renderLayer;
 	}
-	
+
+	/**
+	 * Internal function to prepare a log message for this specific layer.
+	 * @param message The message format to append to the header.
+	 * @return The log message ready to format.
+	 */
+	protected String makeLog(String message) {
+		return String.format("[%s:%08X] ", this.getClass().getSimpleName(), this.uri.hashCode()) + message;
+	}
+
 	private static class DisplayRenderLayer extends RenderLayer {
-		private DisplayRenderLayer(DisplayLayerRender layer) {
+		private DisplayRenderLayer(DisplayLayerSimple layer) {
 			super("display", VertexFormats.POSITION_TEXTURE, VertexFormat.DrawMode.QUADS,
 					256, false, true,
 					() -> {

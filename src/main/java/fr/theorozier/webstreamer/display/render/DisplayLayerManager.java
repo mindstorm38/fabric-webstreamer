@@ -1,7 +1,6 @@
 package fr.theorozier.webstreamer.display.render;
 
 import com.mojang.blaze3d.systems.RenderSystem;
-import fr.theorozier.webstreamer.display.DisplayBlockEntity;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import org.jetbrains.annotations.NotNull;
@@ -52,24 +51,24 @@ public class DisplayLayerManager extends DisplayLayerMap<URI> {
 
     @Override
     @NotNull
-    protected URI getKey(URI uri, DisplayBlockEntity display) {
-        return uri;
+    protected URI getLayerKey(Key key) {
+        return key.uri();
     }
 
     @Override
     @NotNull
-    protected DisplayLayer getNewLayer(URI uri, DisplayBlockEntity display) throws OutOfLayerException, UnknownFormatException {
+    protected DisplayLayerNode getNewLayer(Key key) throws OutOfLayerException, UnknownFormatException {
 
         if (this.cost() >= MAX_LAYERS_COST) {
             throw new OutOfLayerException();
         }
 
-        String path = uri.getPath();
+        String path = key.uri().getPath();
         if (path != null) {
             if (path.endsWith(".m3u8")) {
-                return new DisplayLayerRenderHls(uri, this.res);
+                return new DisplayLayerHls(key.uri(), this.res);
             } else if (path.endsWith(".jpeg") || path.endsWith(".jpg") || path.endsWith(".bmp") || path.endsWith(".png")) {
-                return new DisplayLayerRenderImage(uri, this.res);
+                return new DisplayLayerImage(key.uri(), this.res);
             }
         }
 
