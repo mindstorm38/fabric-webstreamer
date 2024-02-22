@@ -23,7 +23,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 
 @Environment(EnvType.CLIENT)
-public class DisplayLayerImage extends DisplayLayer {
+public class DisplayLayerRenderImage extends DisplayLayerRender {
 	
 	private static final long FAILING_IMAGE_REQUEST_INTERVAL = 30L * 1000000000L;
 	
@@ -31,12 +31,17 @@ public class DisplayLayerImage extends DisplayLayer {
 	private boolean imageUploaded = false;
 	private Future<STBLoadedImage> futureImage;
 	
-	public DisplayLayerImage(URI uri, DisplayLayerResources res) {
+	public DisplayLayerRenderImage(URI uri, DisplayLayerResources res) {
 		super(uri, res);
 	}
-	
+
 	@Override
-	protected void tick() {
+	public int cost() {
+		return 1;  // Static images always have a cost of 1.
+	}
+
+	@Override
+	public void tick() {
 		
 		long now = System.nanoTime();
 		
