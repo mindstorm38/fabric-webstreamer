@@ -57,10 +57,7 @@ public class DisplayLayerManager extends DisplayLayerMap<Object> {
     protected Object getLayerKey(Key key) {
         String path = key.uri().getPath();
         if (path.endsWith(".svg")) {
-            return new DisplayLayerSVGImage.SVGOptions(
-                key.display().getWidth(),
-                key.display().getHeight()
-            );
+            return svgMap.getLayerKey(key); // we need to call this somewhere.
         }
         return key.uri();
     }
