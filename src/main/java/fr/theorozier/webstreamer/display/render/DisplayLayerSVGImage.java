@@ -21,8 +21,8 @@ import java.nio.IntBuffer;
 public class DisplayLayerSVGImage extends DisplayLayerImage {
 	private final SVGOptions options;
 
-	public DisplayLayerSVGImage(SVGOptions options, DisplayLayerResources res) {
-		super(options.uri, res);
+	public DisplayLayerSVGImage(SVGOptions options, URI uri, DisplayLayerResources res) {
+		super(uri, res);
 		this.options = options;
 	}
 
@@ -77,6 +77,6 @@ public class DisplayLayerSVGImage extends DisplayLayerImage {
 		}
 	}
 
-	public record SVGOptions(URI uri, float width, float height) {
+	public record SVGOptions(float width, float height) {
 	}
 }
