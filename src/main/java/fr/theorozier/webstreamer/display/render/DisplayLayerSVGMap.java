@@ -13,7 +13,6 @@ public class DisplayLayerSVGMap extends DisplayLayerMap<DisplayLayerSVGImage.SVG
 	@Override
 	protected DisplayLayerSVGImage.SVGOptions getLayerKey(Key key) {
 		return new DisplayLayerSVGImage.SVGOptions(
-			key.uri(),
 			key.display().getWidth(),
 			key.display().getHeight()
 		);
@@ -23,10 +22,10 @@ public class DisplayLayerSVGMap extends DisplayLayerMap<DisplayLayerSVGImage.SVG
 	protected @NotNull DisplayLayerNode getNewLayer(Key key) throws OutOfLayerException, UnknownFormatException {
 		return new DisplayLayerSVGImage(
 				new DisplayLayerSVGImage.SVGOptions(
-						key.uri(),
 						key.display().getWidth(),
 						key.display().getHeight()
 				),
+				key.uri(),
 				this.res
 		);
 	}
