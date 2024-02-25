@@ -57,7 +57,7 @@ public class DisplayLayerSVGImage extends DisplayLayerImage {
 			ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
 			ImageIO.write(image, "png", byteArrayOutputStream);
 			byte[] imageData = byteArrayOutputStream.toByteArray();
-			buf = ByteBuffer.allocateDirect(imageData.length);
+			buf = MemoryUtil.memAlloc(imageData.length);
 			buf.put(imageData);
 			buf.flip();
 
@@ -78,5 +78,16 @@ public class DisplayLayerSVGImage extends DisplayLayerImage {
 	}
 
 	public record SVGOptions(float width, float height) {
+	}
+
+	@Override
+	protected String makeLog(String message) {
+		if (this.options == null) {
+			// Options should not be null in normal condition, but this actually happens when constructing
+			// this class, because we call "super" before assigning "options", and makeLog is called in super.
+			return super.makeLog(message);
+		} else {
+			return super.makeLog("[" + this.options.width + "/" + this.options.height + "] " + message);
+		}
 	}
 }
