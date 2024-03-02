@@ -33,6 +33,7 @@ dependencies {
 	implementation "com.github.weisj:jsvg:${project.jsvg_parser}"
 
 	include "io.lindstrom:m3u8-parser:${project.m3u8_parser_version}"
+	include "com.github.weisj:jsvg:${project.jsvg_parser}"
 	include "org.bytedeco:javacv:${project.javacv_version}"
 	include "org.bytedeco:javacpp:${project.javacv_version}"
 	include "org.bytedeco:javacpp:${project.javacv_version}:linux-arm64"
