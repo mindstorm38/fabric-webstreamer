@@ -68,15 +68,7 @@ public class DisplayBlockEntity extends BlockEntity {
     public float getHeight() {
         return height;
     }
-    
-    public float getWidthOffset() {
-        return (this.width - 1) / -2f;
-    }
-    
-    public float getHeightOffset() {
-        return (this.height - 1) / -2f;
-    }
-    
+
     public void setAudioConfig(float distance, float volume) {
         this.audioDistance = distance;
         this.audioVolume = volume;
